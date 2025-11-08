@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
+  "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/refs/heads/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
 
   "id": "fail2ban",
   "name": "Fail2Ban Intrusion Prevention",
