@@ -1,0 +1,366 @@
+name: Validate Playbook Syntax
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'catalog/[a-z]/**'
+      - '!**.md'
+  pull_request:
+    paths:
+      - 'catalog/[a-z]/**'
+      - '!**.md'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible and ansible-lint
+        run: |
+          pip install ansible ansible-lint
+
+      - name: Find changed playbooks
+        id: changes
+        run: |
+          # For push to main, compare with previous commit
+          if [ "${{ github.event_name }}" = "push" ]; then
+            BASE_REF="${{ github.event.before }}"
+            HEAD_REF="${{ github.sha }}"
+          else
+            # For pull requests, compare with base branch
+            BASE_REF="origin/${{ github.base_ref }}"
+            HEAD_REF="${{ github.sha }}"
+          fi
+
+          echo "Comparing $BASE_REF...$HEAD_REF"
+
+          # Get changed files in playbook directories (catalog/a-z)
+          changed_files=$(git diff --name-only $BASE_REF...$HEAD_REF | grep -E '^catalog/[a-z]/[^/]+/' || true)
+
+          if [ -z "$changed_files" ]; then
+            echo "No playbook changes detected"
+            echo "dirs=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Changed files:"
+          echo "$changed_files"
+
+          # Extract unique playbook directories (catalog/letter/playbook)
+          changed_dirs=$(echo "$changed_files" | cut -d'/' -f1,2,3 | sort -u)
+
+          echo "Changed playbook directories:"
+          echo "$changed_dirs"
+
+          # Export as multiline output
+          echo "dirs<<EOF" >> $GITHUB_OUTPUT
+          echo "$changed_dirs" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Validate manifest.json exists
+        if: steps.changes.outputs.dirs != ''
+        run: |
+          EXIT_CODE=0
+          while IFS= read -r dir; do
+            if [ -z "$dir" ]; then continue; fi
+
+            echo "::group::Checking $dir"
+
+            if [ ! -f "$dir/manifest.json" ]; then
+              echo "::error file=$dir/manifest.json::Missing manifest.json in $dir"
+              EXIT_CODE=1
+            else
+              echo "✅ Found manifest.json in $dir"
+            fi
+
+            echo "::endgroup::"
+          done <<< "${{ steps.changes.outputs.dirs }}"
+
+          exit $EXIT_CODE
+
+      - name: Validate JSON syntax
+        if: steps.changes.outputs.dirs != ''
+        run: |
+          EXIT_CODE=0
+          while IFS= read -r dir; do
+            if [ -z "$dir" ]; then continue; fi
+
+            echo "::group::Validating JSON syntax for $dir/manifest.json"
+
+            if ! jq empty "$dir/manifest.json" 2>&1; then
+              echo "::error file=$dir/manifest.json::Invalid JSON in $dir/manifest.json"
+              EXIT_CODE=1
+            else
+              echo "✅ Valid JSON in $dir/manifest.json"
+            fi
+
+            echo "::endgroup::"
+          done <<< "${{ steps.changes.outputs.dirs }}"
+
+          exit $EXIT_CODE
+
+      - name: Validate required fields
+        if: steps.changes.outputs.dirs != ''
+        run: |
+          EXIT_CODE=0
+          while IFS= read -r dir; do
+            if [ -z "$dir" ]; then continue; fi
+
+            echo "::group::Validating required fields in $dir/manifest.json"
+
+            REQUIRED_FIELDS=("id" "name" "version" "description" "category" "entry_point" "ansible_version" "os_support" "license")
+
+            for field in "${REQUIRED_FIELDS[@]}"; do
+              if ! jq -e ".$field" "$dir/manifest.json" > /dev/null 2>&1; then
+                echo "::error file=$dir/manifest.json::Missing required field '$field' in $dir/manifest.json"
+                EXIT_CODE=1
+              fi
+            done
+
+            # Validate ID matches directory name
+            manifest_id=$(jq -r '.id' "$dir/manifest.json")
+            dir_name=$(basename "$dir")
+
+            if [ "$manifest_id" != "$dir_name" ]; then
+              echo "::error file=$dir/manifest.json::Manifest ID '$manifest_id' doesn't match directory name '$dir_name'"
+              EXIT_CODE=1
+            else
+              echo "✅ Manifest ID matches directory name"
+            fi
+
+            echo "::endgroup::"
+          done <<< "${{ steps.changes.outputs.dirs }}"
+
+          exit $EXIT_CODE
+
+      - name: Validate entry point exists
+        if: steps.changes.outputs.dirs != ''
+        run: |
+          EXIT_CODE=0
+          while IFS= read -r dir; do
+            if [ -z "$dir" ]; then continue; fi
+
+            echo "::group::Validating entry point for $dir"
+
+            entry_point=$(jq -r '.entry_point' "$dir/manifest.json")
+
+            if [ ! -f "$dir/$entry_point" ]; then
+              echo "::error file=$dir/$entry_point::Entry point '$entry_point' not found in $dir"
+              EXIT_CODE=1
+            else
+              echo "✅ Entry point '$entry_point' exists in $dir"
+            fi
+
+            echo "::endgroup::"
+          done <<< "${{ steps.changes.outputs.dirs }}"
+
+          exit $EXIT_CODE
+
+      - name: Validate YAML syntax
+        if: steps.changes.outputs.dirs != ''
+        run: |
+          EXIT_CODE=0
+          while IFS= read -r dir; do
+            if [ -z "$dir" ]; then continue; fi
+
+            entry_point=$(jq -r '.entry_point' "$dir/manifest.json")
+
+            if [ ! -f "$dir/$entry_point" ]; then
+              continue
+            fi
+
+            echo "::group::Validating YAML syntax for $dir/$entry_point"
+
+            if ! ansible-playbook --syntax-check "$dir/$entry_point" 2>&1; then
+              echo "::error file=$dir/$entry_point::YAML syntax error in $dir/$entry_point"
+              EXIT_CODE=1
+            else
+              echo "✅ Valid YAML syntax in $dir/$entry_point"
+            fi
+
+            echo "::endgroup::"
+          done <<< "${{ steps.changes.outputs.dirs }}"
+
+          exit $EXIT_CODE
+
+      - name: Run ansible-lint
+        if: steps.changes.outputs.dirs != ''
+        run: |
+          EXIT_CODE=0
+          while IFS= read -r dir; do
+            if [ -z "$dir" ]; then continue; fi
+
+            entry_point=$(jq -r '.entry_point' "$dir/manifest.json")
+
+            if [ ! -f "$dir/$entry_point" ]; then
+              continue
+            fi
+
+            echo "::group::Running ansible-lint on $dir/$entry_point"
+
+            # Run ansible-lint but don't fail on warnings
+            if ! ansible-lint "$dir/$entry_point" 2>&1; then
+              echo "::warning file=$dir/$entry_point::ansible-lint warnings/errors in $dir/$entry_point"
+              # Don't set EXIT_CODE=1 for lint warnings
+            else
+              echo "✅ No ansible-lint issues in $dir/$entry_point"
+            fi
+
+            echo "::endgroup::"
+          done <<< "${{ steps.changes.outputs.dirs }}"
+
+          # Don't fail build on lint warnings
+          exit 0
+
+      - name: Validate category
+        if: steps.changes.outputs.dirs != ''
+        run: |
+          EXIT_CODE=0
+          VALID_CATEGORIES=("monitoring" "database" "search" "security" "proxy" "storage" "dev-tools")
+
+          while IFS= read -r dir; do
+            if [ -z "$dir" ]; then continue; fi
+
+            echo "::group::Validating category for $dir"
+
+            category=$(jq -r '.category' "$dir/manifest.json")
+
+            if [[ ! " ${VALID_CATEGORIES[@]} " =~ " ${category} " ]]; then
+              echo "::error file=$dir/manifest.json::Invalid category '$category' in $dir/manifest.json"
+              echo "Valid categories: ${VALID_CATEGORIES[@]}"
+              EXIT_CODE=1
+            else
+              echo "✅ Valid category '$category' in $dir/manifest.json"
+            fi
+
+            echo "::endgroup::"
+          done <<< "${{ steps.changes.outputs.dirs }}"
+
+          exit $EXIT_CODE
+
+      - name: Validate zero external dependencies
+        if: steps.changes.outputs.dirs != ''
+        run: |
+          EXIT_CODE=0
+          while IFS= read -r dir; do
+            if [ -z "$dir" ]; then continue; fi
+
+            echo "::group::Checking $dir for external dependencies"
+
+            # Check for requirements.yml
+            if [ -f "$dir/requirements.yml" ]; then
+              echo "::error file=$dir/requirements.yml::Found requirements.yml in $dir"
+              echo "Playbooks must not use external dependency fetching."
+              echo "If you need Galaxy role code, copy it into your playbook directory."
+              EXIT_CODE=1
+            fi
+
+            # Check for meta/main.yml with external dependencies
+            if [ -f "$dir/meta/main.yml" ]; then
+              if grep -q "dependencies:" "$dir/meta/main.yml" 2>/dev/null; then
+                if grep -qE "dependencies:.*[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+" "$dir/meta/main.yml" 2>/dev/null; then
+                  echo "::error file=$dir/meta/main.yml::External role dependencies found in meta/main.yml"
+                  echo "Copy external role code into your playbook directory instead."
+                  EXIT_CODE=1
+                fi
+              fi
+            fi
+
+            if [ $EXIT_CODE -eq 0 ]; then
+              echo "✅ Playbook $dir has zero external dependencies"
+            fi
+
+            echo "::endgroup::"
+          done <<< "${{ steps.changes.outputs.dirs }}"
+
+          exit $EXIT_CODE
+
+      - name: Validate os_support format
+        if: steps.changes.outputs.dirs != ''
+        run: |
+          EXIT_CODE=0
+          while IFS= read -r dir; do
+            if [ -z "$dir" ]; then continue; fi
+
+            echo "::group::Validating os_support format for $dir"
+
+            # Check if os_support is an array
+            if ! jq -e '.os_support | type == "array"' "$dir/manifest.json" > /dev/null 2>&1; then
+              echo "::error file=$dir/manifest.json::os_support must be an array"
+              EXIT_CODE=1
+              echo "::endgroup::"
+              continue
+            fi
+
+            # Check if os_support has at least one entry
+            os_count=$(jq '.os_support | length' "$dir/manifest.json")
+            if [ "$os_count" -eq 0 ]; then
+              echo "::error file=$dir/manifest.json::os_support must have at least one entry"
+              EXIT_CODE=1
+              echo "::endgroup::"
+              continue
+            fi
+
+            # Validate each os_support entry has required fields
+            valid_distros=("ubuntu" "debian" "centos" "rhel" "rocky" "alma")
+            valid_arch=("amd64" "arm64" "both")
+
+            for i in $(seq 0 $((os_count - 1))); do
+              distro=$(jq -r ".os_support[$i].distro" "$dir/manifest.json")
+              version=$(jq -r ".os_support[$i].version" "$dir/manifest.json")
+              arch=$(jq -r ".os_support[$i].arch" "$dir/manifest.json")
+
+              # Check distro
+              if [[ ! " ${valid_distros[@]} " =~ " ${distro} " ]]; then
+                echo "::error file=$dir/manifest.json::Invalid distro '$distro' in os_support[$i]"
+                EXIT_CODE=1
+              fi
+
+              # Check version exists
+              if [ "$version" = "null" ] || [ -z "$version" ]; then
+                echo "::error file=$dir/manifest.json::Missing version in os_support[$i]"
+                EXIT_CODE=1
+              fi
+
+              # Check arch
+              if [[ ! " ${valid_arch[@]} " =~ " ${arch} " ]]; then
+                echo "::error file=$dir/manifest.json::Invalid arch '$arch' in os_support[$i] (must be: amd64, arm64, or both)"
+                EXIT_CODE=1
+              fi
+            done
+
+            if [ $EXIT_CODE -eq 0 ]; then
+              echo "✅ Valid os_support format with $os_count entries"
+            fi
+
+            echo "::endgroup::"
+          done <<< "${{ steps.changes.outputs.dirs }}"
+
+          exit $EXIT_CODE
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -z "${{ steps.changes.outputs.dirs }}" ]; then
+            echo "No playbook changes detected in this push." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Changed playbooks:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.changes.outputs.dirs }}" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi

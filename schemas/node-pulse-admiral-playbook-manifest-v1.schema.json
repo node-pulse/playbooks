@@ -1,0 +1,372 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/node-pulse/playbooks/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
+  "title": "Node Pulse Admiral Playbook Manifest",
+  "description": "Schema for Node Pulse Admiral community playbook manifest.json files",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "version",
+    "description",
+    "author",
+    "category",
+    "tags",
+    "entry_point",
+    "ansible_version",
+    "os_support",
+    "license"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference URL"
+    },
+    "id": {
+      "type": "string",
+      "description": "Unique identifier (slug), must match directory name",
+      "pattern": "^[a-z0-9-]+$",
+      "minLength": 2,
+      "maxLength": 50
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name for UI",
+      "minLength": 3,
+      "maxLength": 100
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version (e.g., 1.2.0)",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?(\\+[a-zA-Z0-9.-]+)?$"
+    },
+    "description": {
+      "type": "string",
+      "description": "Short description (max 200 chars)",
+      "minLength": 10,
+      "maxLength": 200
+    },
+    "author": {
+      "type": "object",
+      "description": "Author information",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Author name",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "description": "Contact email",
+          "format": "email"
+        },
+        "url": {
+          "type": "string",
+          "description": "Author website or GitHub profile",
+          "format": "uri"
+        },
+        "status": {
+          "type": "string",
+          "description": "Trust badge status",
+          "enum": ["community", "verified", "deprecated"],
+          "default": "community"
+        }
+      },
+      "additionalProperties": false
+    },
+    "homepage": {
+      "type": "string",
+      "description": "Playbook homepage URL",
+      "format": "uri"
+    },
+    "repository": {
+      "type": "string",
+      "description": "Source repository URL",
+      "format": "uri"
+    },
+    "category": {
+      "type": "string",
+      "description": "Primary category",
+      "enum": [
+        "monitoring",
+        "database",
+        "search",
+        "security",
+        "proxy",
+        "storage",
+        "dev-tools"
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "description": "Searchable tags (max 10)",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9-]+$",
+        "minLength": 2,
+        "maxLength": 30
+      },
+      "minItems": 1,
+      "maxItems": 10,
+      "uniqueItems": true
+    },
+    "entry_point": {
+      "type": "string",
+      "description": "Main playbook file to execute",
+      "pattern": "^[a-zA-Z0-9_.-]+\\.ya?ml$"
+    },
+    "structure": {
+      "type": "object",
+      "description": "File manifest (what files exist)",
+      "properties": {
+        "playbook": {
+          "type": "string",
+          "description": "Main playbook file path"
+        },
+        "templates": {
+          "type": "array",
+          "description": "List of Jinja2 template files",
+          "items": {
+            "type": "string"
+          }
+        },
+        "files": {
+          "type": "array",
+          "description": "List of static files",
+          "items": {
+            "type": "string"
+          }
+        },
+        "roles": {
+          "type": "array",
+          "description": "List of included role directories",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ansible_version": {
+      "type": "string",
+      "description": "Minimum Ansible version (e.g., >=2.15)",
+      "pattern": "^>=?\\d+\\.\\d+"
+    },
+    "os_support": {
+      "type": "array",
+      "description": "Array of OS compatibility objects",
+      "items": {
+        "type": "object",
+        "required": ["distro", "version", "arch"],
+        "properties": {
+          "distro": {
+            "type": "string",
+            "description": "OS distribution name",
+            "enum": ["ubuntu", "debian", "centos", "rhel", "rocky", "alma"]
+          },
+          "version": {
+            "type": "string",
+            "description": "OS version (e.g., 22.04, 11, 9)",
+            "pattern": "^[0-9.]+$"
+          },
+          "arch": {
+            "type": "string",
+            "description": "CPU architecture",
+            "enum": ["amd64", "arm64", "both"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "variables": {
+      "type": "array",
+      "description": "Variable definitions for form generation",
+      "items": {
+        "type": "object",
+        "required": ["name", "label", "type", "description", "required"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Ansible variable name (used in playbook)",
+            "pattern": "^[a-z_][a-z0-9_]*$"
+          },
+          "label": {
+            "type": "string",
+            "description": "UI display label (human-friendly)",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "type": {
+            "type": "string",
+            "description": "Variable data type",
+            "enum": ["string", "integer", "boolean", "select", "password"]
+          },
+          "description": {
+            "type": "string",
+            "description": "Help text for the variable",
+            "minLength": 5,
+            "maxLength": 300
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Whether user must provide a value"
+          },
+          "default": {
+            "description": "Default value (type depends on variable type)"
+          },
+          "pattern": {
+            "type": "string",
+            "description": "Regex pattern for validation (string type only)"
+          },
+          "min": {
+            "type": "integer",
+            "description": "Minimum value (integer type only)"
+          },
+          "max": {
+            "type": "integer",
+            "description": "Maximum value (integer type only)"
+          },
+          "options": {
+            "type": "array",
+            "description": "Available options (select type only)",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2
+          }
+        },
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": { "type": { "const": "string" } }
+            },
+            "then": {
+              "not": {
+                "anyOf": [
+                  { "required": ["min"] },
+                  { "required": ["max"] },
+                  { "required": ["options"] }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "type": { "const": "integer" } }
+            },
+            "then": {
+              "not": {
+                "anyOf": [
+                  { "required": ["pattern"] },
+                  { "required": ["options"] }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "type": { "const": "select" } }
+            },
+            "then": {
+              "required": ["options"],
+              "not": {
+                "anyOf": [
+                  { "required": ["pattern"] },
+                  { "required": ["min"] },
+                  { "required": ["max"] }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "type": { "const": "password" } }
+            },
+            "then": {
+              "not": {
+                "anyOf": [
+                  { "required": ["pattern"] },
+                  { "required": ["min"] },
+                  { "required": ["max"] },
+                  { "required": ["options"] }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "health_checks": {
+      "type": "array",
+      "description": "Post-install health check definitions",
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["http", "tcp", "command"]
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to check (http type only)"
+          },
+          "expect_status": {
+            "type": "integer",
+            "description": "Expected HTTP status code",
+            "minimum": 100,
+            "maximum": 599
+          },
+          "port": {
+            "type": "integer",
+            "description": "Port to check (tcp type only)",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "command": {
+            "type": "string",
+            "description": "Shell command to run (command type only)"
+          },
+          "timeout": {
+            "type": "integer",
+            "description": "Timeout in seconds",
+            "minimum": 1,
+            "maximum": 60,
+            "default": 5
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "dangerous_operations": {
+      "type": "array",
+      "description": "Warning messages for risky operations",
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 200
+      },
+      "maxItems": 20
+    },
+    "license": {
+      "type": "string",
+      "description": "SPDX license identifier",
+      "pattern": "^[A-Z0-9.-]+$"
+    },
+    "created_at": {
+      "type": "string",
+      "description": "ISO 8601 timestamp of creation",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "description": "ISO 8601 timestamp of last update",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

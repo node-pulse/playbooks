@@ -1,0 +1,147 @@
+{
+  "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
+
+  "id": "fail2ban",
+  "name": "Fail2Ban Intrusion Prevention",
+  "version": "1.0.0",
+  "description": "Install and configure Fail2Ban to protect SSH and other services from brute-force attacks",
+
+  "author": {
+    "name": "Node Pulse Community",
+    "email": "community@nodepulse.io",
+    "url": "https://github.com/node-pulse",
+    "status": "verified"
+  },
+
+  "homepage": "https://github.com/node-pulse/playbooks/tree/main/catalog/f/fail2ban",
+  "repository": "https://github.com/node-pulse/playbooks",
+
+  "category": "security",
+  "tags": ["security", "ssh", "intrusion-prevention", "fail2ban", "firewall"],
+
+  "entry_point": "playbook.yml",
+
+  "structure": {
+    "playbook": "playbook.yml",
+    "templates": [
+      "templates/jail.local.j2",
+      "templates/sshd.local.j2"
+    ],
+    "files": []
+  },
+
+  "ansible_version": ">=2.10",
+
+  "os_support": [
+    {
+      "distro": "ubuntu",
+      "version": "20.04",
+      "arch": "both"
+    },
+    {
+      "distro": "ubuntu",
+      "version": "22.04",
+      "arch": "both"
+    },
+    {
+      "distro": "ubuntu",
+      "version": "24.04",
+      "arch": "both"
+    },
+    {
+      "distro": "debian",
+      "version": "11",
+      "arch": "both"
+    },
+    {
+      "distro": "debian",
+      "version": "12",
+      "arch": "both"
+    }
+  ],
+
+  "variables": [
+    {
+      "name": "bantime",
+      "label": "Ban Time (seconds)",
+      "type": "integer",
+      "default": 3600,
+      "description": "Duration in seconds that an IP is banned after triggering the threshold",
+      "required": false,
+      "min": 60,
+      "max": 86400
+    },
+    {
+      "name": "findtime",
+      "label": "Find Time Window (seconds)",
+      "type": "integer",
+      "default": 600,
+      "description": "Time window in seconds to count failed login attempts",
+      "required": false,
+      "min": 60,
+      "max": 3600
+    },
+    {
+      "name": "maxretry",
+      "label": "Max Retry Attempts",
+      "type": "integer",
+      "default": 5,
+      "description": "Maximum number of failed attempts before banning an IP",
+      "required": false,
+      "min": 3,
+      "max": 20
+    },
+    {
+      "name": "ssh_port",
+      "label": "SSH Port",
+      "type": "integer",
+      "default": 22,
+      "description": "SSH port to monitor (if using non-standard port)",
+      "required": false,
+      "min": 1,
+      "max": 65535
+    },
+    {
+      "name": "destemail",
+      "label": "Notification Email",
+      "type": "string",
+      "default": "root@localhost",
+      "description": "Email address to receive ban notifications",
+      "required": false,
+      "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    },
+    {
+      "name": "action",
+      "label": "Ban Action",
+      "type": "select",
+      "default": "action_",
+      "description": "Action to take when banning an IP",
+      "required": false,
+      "options": [
+        "action_",
+        "action_mw",
+        "action_mwl"
+      ]
+    }
+  ],
+
+  "health_checks": [
+    {
+      "type": "command",
+      "command": "systemctl is-active fail2ban",
+      "timeout": 5
+    }
+  ],
+
+  "dangerous_operations": [
+    "Installs fail2ban package",
+    "Modifies firewall rules (iptables/nftables)",
+    "Automatically bans IPs based on configured thresholds",
+    "Creates systemd service 'fail2ban'"
+  ],
+
+  "license": "MIT",
+
+  "created_at": "2025-11-07T12:00:00Z",
+  "updated_at": "2025-11-07T12:00:00Z"
+}

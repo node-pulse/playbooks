@@ -1,0 +1,73 @@
+---
+- name: Install and Configure Fail2Ban
+  hosts: all
+  become: true
+
+  vars:
+    # Default values (can be overridden)
+    bantime: 3600           # 1 hour
+    findtime: 600           # 10 minutes
+    maxretry: 5             # 5 failed attempts
+    ssh_port: 22            # Default SSH port
+    destemail: "root@localhost"
+    action: "action_"       # action_ = ban only, action_mw = ban + email, action_mwl = ban + email with logs
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Install fail2ban package
+      apt:
+        name: fail2ban
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure fail2ban configuration directory exists
+      file:
+        path: /etc/fail2ban
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Deploy jail.local configuration
+      template:
+        src: templates/jail.local.j2
+        dest: /etc/fail2ban/jail.local
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart fail2ban
+
+    - name: Deploy SSH jail configuration
+      template:
+        src: templates/sshd.local.j2
+        dest: /etc/fail2ban/jail.d/sshd.local
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart fail2ban
+
+    - name: Ensure fail2ban service is enabled and started
+      systemd:
+        name: fail2ban
+        enabled: yes
+        state: started
+
+    - name: Check fail2ban status
+      command: fail2ban-client status
+      register: fail2ban_status
+      changed_when: false
+
+    - name: Display fail2ban status
+      debug:
+        var: fail2ban_status.stdout_lines
+
+  handlers:
+    - name: Restart fail2ban
+      systemd:
+        name: fail2ban
+        state: restarted
