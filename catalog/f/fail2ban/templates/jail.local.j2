@@ -13,14 +13,14 @@ findtime = {{ findtime }}
 # Maximum number of failed attempts before banning
 maxretry = {{ maxretry }}
 
-# Destination email for notifications
-destemail = {{ destemail }}
-
-# Sender email
-sendername = Fail2Ban
-
-# Ban action to use (action_ = ban only, action_mw = ban + email, action_mwl = ban + email with logs)
-action = {{ action }}
+{% if webhook_url != "" %}
+# Ban action with webhook notifications
+action = %(action_)s
+         webhook
+{% else %}
+# Ban action (no notifications configured)
+action = %(action_)s
+{% endif %}
 
 # Protocol (tcp, udp, icmp, all)
 protocol = tcp

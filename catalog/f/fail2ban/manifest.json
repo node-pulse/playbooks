@@ -23,7 +23,7 @@
 
   "structure": {
     "playbook": "playbook.yml",
-    "templates": ["templates/jail.local.j2", "templates/sshd.local.j2"],
+    "templates": ["templates/jail.local.j2", "templates/sshd.local.j2", "templates/webhook.conf.j2"],
     "files": []
   },
 
@@ -99,22 +99,13 @@
       "max": 65535
     },
     {
-      "name": "destemail",
-      "label": "Notification Email",
+      "name": "webhook_url",
+      "label": "Webhook URL (optional)",
       "type": "string",
-      "default": "root@localhost",
-      "description": "Email address to receive ban notifications",
+      "default": "",
+      "description": "HTTP endpoint to receive ban/unban notifications as JSON (supports Discord, Slack, Telegram, or custom API)",
       "required": false,
-      "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-    },
-    {
-      "name": "action",
-      "label": "Ban Action",
-      "type": "select",
-      "default": "action_",
-      "description": "Action to take when banning an IP",
-      "required": false,
-      "options": ["action_", "action_mw", "action_mwl"]
+      "pattern": "^(https?://.*)?$"
     }
   ],
 

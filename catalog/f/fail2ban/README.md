@@ -28,14 +28,7 @@ Fail2Ban scans log files (e.g., `/var/log/auth.log`) and bans IPs that show mali
 | `findtime` | Time window in seconds to count failed attempts | `600` (10 minutes) | Integer |
 | `maxretry` | Maximum failed attempts before banning | `5` | Integer |
 | `ssh_port` | SSH port to monitor | `22` | Integer |
-| `destemail` | Email address for ban notifications | `root@localhost` | String |
-| `action` | Ban action type | `action_` | Select |
-
-### Action Types
-
-- `action_` - Ban only (no email)
-- `action_mw` - Ban + send email notification
-- `action_mwl` - Ban + send email with log excerpts
+| `webhook_url` | HTTP endpoint to receive ban/unban notifications | `""` (disabled) | String |
 
 ## Example Usage
 
@@ -53,12 +46,71 @@ findtime: 300       # 5 minutes
 maxretry: 3         # 3 attempts
 ```
 
-### Custom SSH Port with Email Notifications
+### Custom SSH Port
 
 ```yaml
 ssh_port: 2222
-destemail: "admin@example.com"
-action: "action_mw"
+bantime: 3600
+maxretry: 5
+```
+
+### With Webhook Notifications
+
+```yaml
+bantime: 3600
+maxretry: 5
+webhook_url: "https://api.example.com/fail2ban/notify"
+```
+
+## Webhook Notifications
+
+When you provide a `webhook_url`, fail2ban will POST JSON payloads to your endpoint on these events:
+
+### Ban Event
+```json
+{
+  "event": "ban",
+  "ip": "192.168.1.100",
+  "jail": "sshd",
+  "time": "2025-11-08 10:30:45",
+  "failures": "5",
+  "server": "web-01"
+}
+```
+
+### Unban Event
+```json
+{
+  "event": "unban",
+  "ip": "192.168.1.100",
+  "jail": "sshd",
+  "time": "2025-11-08 11:30:45",
+  "server": "web-01"
+}
+```
+
+### Webhook Integration Examples
+
+**Custom API (recommended):**
+Set up your own API to receive and route notifications to Discord, Telegram, Slack, etc.
+```yaml
+webhook_url: "https://api.example.com/webhooks/fail2ban"
+```
+
+**Discord:**
+```yaml
+webhook_url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_TOKEN"
+```
+
+**Slack:**
+```yaml
+webhook_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+```
+
+**n8n/Make/Zapier:**
+Use workflow automation platforms to route to Telegram, email, SMS, etc.
+```yaml
+webhook_url: "https://your-n8n.example.com/webhook/fail2ban"
 ```
 
 ## Post-Installation

@@ -9,8 +9,7 @@
     findtime: 600           # 10 minutes
     maxretry: 5             # 5 failed attempts
     ssh_port: 22            # Default SSH port
-    destemail: "root@localhost"
-    action: "action_"       # action_ = ban only, action_mw = ban + email, action_mwl = ban + email with logs
+    webhook_url: ""         # Optional webhook URL for notifications
 
   tasks:
     - name: Update apt cache
@@ -49,6 +48,16 @@
         owner: root
         group: root
         mode: '0644'
+      notify: Restart fail2ban
+
+    - name: Deploy webhook action configuration
+      template:
+        src: templates/webhook.conf.j2
+        dest: /etc/fail2ban/action.d/webhook.conf
+        owner: root
+        group: root
+        mode: '0644'
+      when: webhook_url != ""
       notify: Restart fail2ban
 
     - name: Ensure fail2ban service is enabled and started
