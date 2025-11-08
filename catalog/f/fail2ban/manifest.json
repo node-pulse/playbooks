@@ -7,10 +7,10 @@
   "description": "Install and configure Fail2Ban to protect SSH and other services from brute-force attacks",
 
   "author": {
-    "name": "Node Pulse Community",
-    "email": "community@nodepulse.io",
-    "url": "https://github.com/node-pulse",
-    "status": "verified"
+    "name": "Yumin",
+    "email": "yuminops@gmail.com",
+    "url": "https://github.com/guiyumin",
+    "status": "community"
   },
 
   "homepage": "https://github.com/node-pulse/playbooks/tree/main/catalog/f/fail2ban",
@@ -23,10 +23,7 @@
 
   "structure": {
     "playbook": "playbook.yml",
-    "templates": [
-      "templates/jail.local.j2",
-      "templates/sshd.local.j2"
-    ],
+    "templates": ["templates/jail.local.j2", "templates/sshd.local.j2"],
     "files": []
   },
 
@@ -117,11 +114,7 @@
       "default": "action_",
       "description": "Action to take when banning an IP",
       "required": false,
-      "options": [
-        "action_",
-        "action_mw",
-        "action_mwl"
-      ]
+      "options": ["action_", "action_mw", "action_mwl"]
     }
   ],
 
