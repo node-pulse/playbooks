@@ -4,17 +4,9 @@ A curated collection of Ansible playbooks for deploying common services to Linux
 
 ## Browse Playbooks
 
-Install playbooks directly from your Admiral dashboard: **Playbooks → Community**
+Search and install playbooks at: **https://nodepulse.sh**
 
-Or explore this repository by category:
-
-- [**Security** (catalog/f/)](./catalog/f/) - fail2ban, SSH hardening, Wazuh
-- [**Monitoring** (catalog/m/)](./catalog/m/) - node_exporter, process_exporter, blackbox_exporter
-- [**Database** (catalog/d/)](./catalog/d/) - PostgreSQL, MySQL, MongoDB, Valkey
-- [**Search** (catalog/s/)](./catalog/s/) - Meilisearch, Elasticsearch
-- [**Proxy** (catalog/p/)](./catalog/p/) - Caddy, Nginx
-- [**Storage** (catalog/s/)](./catalog/s/) - SeaweedFS, MinIO
-- [**Dev Tools** (catalog/d/)](./catalog/d/) - Docker, Git, build tools
+Or install directly from your Admiral dashboard: **Playbooks → Community**
 
 ## Available Playbooks
 
@@ -82,12 +74,24 @@ playbooks/
 ├── README.md                    # This file
 ├── CONTRIBUTING.md              # Contribution guide
 ├── LICENSE                      # MIT License
-├── .github/
-│   └── workflows/
-│       └── syntax-check.yml     # CI validation
+│
+├── .github/workflows/
+│   └── syntax-check.yml         # CI validation workflow
 │
 ├── schemas/                     # JSON schemas
 │   └── node-pulse-admiral-playbook-manifest-v1.schema.json
+│
+├── scripts/                     # Validation scripts
+│   ├── find-changed-playbooks.sh
+│   ├── validate-ansible-lint.sh
+│   ├── validate-category.sh
+│   ├── validate-entry-point.sh
+│   ├── validate-json-schema.sh
+│   ├── validate-json-syntax.sh
+│   ├── validate-manifest-fields.sh
+│   ├── validate-no-external-deps.sh
+│   ├── validate-os-support.sh
+│   └── validate-yaml-syntax.sh
 │
 └── catalog/                     # Playbook catalog
     ├── f/                       # Playbooks starting with 'f'
