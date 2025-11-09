@@ -31,15 +31,16 @@ for dir in "$@"; do
     fi
   done
 
-  # Validate ID matches directory name
+  # Validate ID format (must be pb_[A-Za-z0-9]{10})
   manifest_id=$(jq -r '.id' "$manifest_file" 2>/dev/null || echo "")
-  dir_name=$(basename "$dir")
 
-  if [ -n "$manifest_id" ] && [ "$manifest_id" != "$dir_name" ]; then
-    echo "::error file=$manifest_file::Manifest ID '$manifest_id' doesn't match directory name '$dir_name'"
-    EXIT_CODE=1
-  elif [ -n "$manifest_id" ]; then
-    echo "✅ Manifest ID matches directory name"
+  if [ -n "$manifest_id" ]; then
+    if [[ ! "$manifest_id" =~ ^pb_[A-Za-z0-9]{10}$ ]]; then
+      echo "::error file=$manifest_file::Manifest ID '$manifest_id' must match format 'pb_[A-Za-z0-9]{10}'"
+      EXIT_CODE=1
+    else
+      echo "✅ Manifest ID format is valid: $manifest_id"
+    fi
   fi
 
   if [ $EXIT_CODE -eq 0 ]; then
