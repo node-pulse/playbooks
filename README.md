@@ -1,4 +1,4 @@
-# Node Pulse Community Playbooks
+# Node Pulse Community Playbooks Registry
 
 A curated collection of Ansible playbooks for deploying common services to Linux servers.
 
@@ -12,8 +12,8 @@ Or install directly from your Admiral dashboard: **Playbooks → Community**
 
 ### Security
 
-| Playbook | Description | Status |
-|----------|-------------|--------|
+| Playbook                          | Description                                       | Status   |
+| --------------------------------- | ------------------------------------------------- | -------- |
 | [fail2ban](./catalog/f/fail2ban/) | Protect SSH and services from brute-force attacks | ✅ Ready |
 
 ## Quick Start
