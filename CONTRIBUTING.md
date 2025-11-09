@@ -32,11 +32,34 @@ catalog/{letter}/{playbook-name}/
 
 Every playbook **must** include a valid `manifest.json` file:
 
+### Generating a Unique Playbook ID
+
+The `id` field must be globally unique and follow the format `pb_[A-Za-z0-9]{10}`.
+
+**Generate a random ID:**
+
+```bash
+# Using Python (recommended)
+python3 -c "import random, string; print('pb_' + ''.join(random.choices(string.ascii_letters + string.digits, k=10)))"
+
+# Using OpenSSL + base64
+echo "pb_$(openssl rand -base64 8 | tr -dc 'A-Za-z0-9' | head -c10)"
+
+# Example output: pb_Xk7nM2pQw9
+```
+
+**Important:**
+- Generate the ID **once** when creating the playbook
+- **Never change it** after creation (it's the permanent identifier)
+- The CI will reject duplicate IDs
+
+### Example manifest.json
+
 ```json
 {
   "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
 
-  "id": "fail2ban",
+  "id": "pb_Xk7nM2pQw9",
   "name": "Fail2Ban Intrusion Prevention",
   "version": "1.0.0",
   "description": "Install and configure Fail2Ban to protect SSH from brute-force attacks",

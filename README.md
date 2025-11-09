@@ -61,6 +61,7 @@ We welcome community contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for
 ### Playbook Requirements
 
 - ✅ Complete `manifest.json` with all required fields
+- ✅ Unique playbook ID in format `pb_[A-Za-z0-9]{10}` (generate once, never change)
 - ✅ Self-contained (no external dependencies, copy code locally)
 - ✅ Idempotent (safe to run multiple times)
 - ✅ Well-documented variables

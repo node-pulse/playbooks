@@ -103,6 +103,10 @@ jobs:
         run: |
           ./scripts/validate-os-support.sh ${{ steps.changes.outputs.dirs }}
 
+      - name: Validate unique playbook IDs
+        run: |
+          ./scripts/validate-unique-ids.sh
+
       - name: Summary
         if: always() && steps.changes.outputs.dirs != ''
         run: |

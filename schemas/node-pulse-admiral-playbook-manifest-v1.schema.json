@@ -24,10 +24,8 @@
     },
     "id": {
       "type": "string",
-      "description": "Unique identifier (slug), must match directory name",
-      "pattern": "^[a-z0-9-]+$",
-      "minLength": 2,
-      "maxLength": 50
+      "description": "Globally unique random identifier (e.g., pb_aB3xK9mN2q). Generate once and never change.",
+      "pattern": "^pb_[A-Za-z0-9]{10}$"
     },
     "name": {
       "type": "string",

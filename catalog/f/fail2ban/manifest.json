@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/refs/heads/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
 
-  "id": "fail2ban",
+  "id": "pb_Xk7nM2pQw9",
   "name": "Fail2Ban Intrusion Prevention",
   "version": "1.0.0",
   "description": "Install and configure Fail2Ban to protect SSH and other services from brute-force attacks",
