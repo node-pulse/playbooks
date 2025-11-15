@@ -3,7 +3,7 @@
 
   "id": "pb_Xk7nM2pQw9",
   "name": "Fail2Ban Intrusion Prevention",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Install and configure Fail2Ban to protect SSH and other services from brute-force attacks",
 
   "author": {
@@ -26,7 +26,11 @@
       "install": "install.yml",
       "uninstall": "uninstall.yml"
     },
-    "templates": ["templates/jail.local.j2", "templates/sshd.local.j2", "templates/webhook.conf.j2"],
+    "templates": [
+      "templates/jail.local.j2",
+      "templates/sshd.local.j2",
+      "templates/webhook.conf.j2"
+    ],
     "files": []
   },
 
