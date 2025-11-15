@@ -16,7 +16,7 @@ Fail2Ban scans log files (e.g., `/var/log/auth.log`) and bans IPs that show mali
 
 ## Requirements
 
-- Ubuntu 20.04, 22.04, 24.04 or Debian 11, 12
+- **Supported OS**: Ubuntu 20.04/22.04/24.04, Debian 11/12, RHEL 8/9, Rocky Linux 8/9, AlmaLinux 8/9, Oracle Linux 8/9, Amazon Linux 2/2023
 - `sudo` or root access
 - SSH access to target server
 
@@ -29,6 +29,8 @@ Fail2Ban scans log files (e.g., `/var/log/auth.log`) and bans IPs that show mali
 | `maxretry` | Maximum failed attempts before banning | `5` | Integer |
 | `ssh_port` | SSH port to monitor | `22` | Integer |
 | `webhook_url` | HTTP endpoint to receive ban/unban notifications | `""` (disabled) | String |
+| `webhook_token` | Bearer token for webhook authentication | `""` (none) | String |
+| `webhook_timeout` | Webhook request timeout in seconds | `10` | Integer |
 
 ## Example Usage
 
@@ -60,11 +62,19 @@ maxretry: 5
 bantime: 3600
 maxretry: 5
 webhook_url: "https://api.example.com/fail2ban/notify"
+webhook_token: "your-secret-token-here"
+webhook_timeout: 10
 ```
 
 ## Webhook Notifications
 
-When you provide a `webhook_url`, fail2ban will POST JSON payloads to your endpoint on these events:
+When you provide a `webhook_url`, fail2ban will POST JSON payloads to your endpoint on these events.
+
+### Security Features
+
+- **Authentication**: Set `webhook_token` to add `Authorization: Bearer <token>` header to all requests
+- **Timeout Protection**: Requests timeout after `webhook_timeout` seconds (default: 10s)
+- **Non-blocking**: Webhook failures won't prevent fail2ban from banning IPs (fail-safe design)
 
 ### Ban Event
 ```json

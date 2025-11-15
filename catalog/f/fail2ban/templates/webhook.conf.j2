@@ -6,23 +6,40 @@
 [Definition]
 
 # Action triggered when an IP is banned
-actionban = curl -X POST {{ webhook_url | quote }} \
+actionban = curl -X POST '<webhook_url>' \
+    --max-time {{ webhook_timeout }} \
+    --silent --show-error --fail \
     -H "Content-Type: application/json" \
-    -d '{"event":"ban","ip":"<ip>","jail":"<name>","time":"<time>","failures":"<failures>","server":"{{ ansible_hostname }}"}'
+{% if webhook_token != "" %}    -H "Authorization: Bearer {{ webhook_token }}" \
+{% endif %}    -d '{"event":"ban","ip":"<ip>","jail":"<name>","time":"<time>","failures":"<failures>","server":"{{ ansible_hostname }}"}' \
+    || true
 
 # Action triggered when an IP is unbanned
-actionunban = curl -X POST {{ webhook_url | quote }} \
+actionunban = curl -X POST '<webhook_url>' \
+    --max-time {{ webhook_timeout }} \
+    --silent --show-error --fail \
     -H "Content-Type: application/json" \
-    -d '{"event":"unban","ip":"<ip>","jail":"<name>","time":"<time>","server":"{{ ansible_hostname }}"}'
+{% if webhook_token != "" %}    -H "Authorization: Bearer {{ webhook_token }}" \
+{% endif %}    -d '{"event":"unban","ip":"<ip>","jail":"<name>","time":"<time>","server":"{{ ansible_hostname }}"}' \
+    || true
 
 # Action triggered when fail2ban starts
-actionstart = curl -X POST {{ webhook_url | quote }} \
+actionstart = curl -X POST '<webhook_url>' \
+    --max-time {{ webhook_timeout }} \
+    --silent --show-error --fail \
     -H "Content-Type: application/json" \
-    -d '{"event":"start","jail":"<name>","time":"<time>","server":"{{ ansible_hostname }}"}'
+{% if webhook_token != "" %}    -H "Authorization: Bearer {{ webhook_token }}" \
+{% endif %}    -d '{"event":"start","jail":"<name>","time":"<time>","server":"{{ ansible_hostname }}"}' \
+    || true
 
 # Action triggered when fail2ban stops
-actionstop = curl -X POST {{ webhook_url | quote }} \
+actionstop = curl -X POST '<webhook_url>' \
+    --max-time {{ webhook_timeout }} \
+    --silent --show-error --fail \
     -H "Content-Type: application/json" \
-    -d '{"event":"stop","jail":"<name>","time":"<time>","server":"{{ ansible_hostname }}"}'
+{% if webhook_token != "" %}    -H "Authorization: Bearer {{ webhook_token }}" \
+{% endif %}    -d '{"event":"stop","jail":"<name>","time":"<time>","server":"{{ ansible_hostname }}"}' \
+    || true
 
 [Init]
+webhook_url = {{ webhook_url }}

@@ -79,6 +79,26 @@
       "arch": "both"
     },
     {
+      "distro": "alma",
+      "version": "8",
+      "arch": "both"
+    },
+    {
+      "distro": "alma",
+      "version": "9",
+      "arch": "both"
+    },
+    {
+      "distro": "oracle",
+      "version": "8",
+      "arch": "both"
+    },
+    {
+      "distro": "oracle",
+      "version": "9",
+      "arch": "both"
+    },
+    {
       "distro": "amazon",
       "version": "2",
       "arch": "both"
@@ -139,6 +159,24 @@
       "description": "HTTP endpoint to receive ban/unban notifications as JSON (supports Discord, Slack, Telegram, or custom API)",
       "required": false,
       "pattern": "^(https?://.*)?$"
+    },
+    {
+      "name": "webhook_token",
+      "label": "Webhook Authentication Token (optional)",
+      "type": "string",
+      "default": "",
+      "description": "Bearer token or API key for authenticating webhook requests",
+      "required": false
+    },
+    {
+      "name": "webhook_timeout",
+      "label": "Webhook Timeout (seconds)",
+      "type": "integer",
+      "default": 10,
+      "description": "Maximum time to wait for webhook response before timing out",
+      "required": false,
+      "min": 1,
+      "max": 30
     }
   ],
 
@@ -160,5 +198,5 @@
   "license": "MIT",
 
   "created_at": "2025-11-07T12:00:00Z",
-  "updated_at": "2025-01-08T00:00:00Z"
+  "updated_at": "2024-11-14T00:00:00Z"
 }

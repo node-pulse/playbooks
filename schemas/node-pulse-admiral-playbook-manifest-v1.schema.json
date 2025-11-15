@@ -178,7 +178,7 @@
           "distro": {
             "type": "string",
             "description": "OS distribution name",
-            "enum": ["ubuntu", "debian", "centos", "rhel", "rocky", "alma", "amazon"]
+            "enum": ["ubuntu", "debian", "centos", "rhel", "rocky", "alma", "oracle", "amazon"]
           },
           "version": {
             "type": "string",

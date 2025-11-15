@@ -17,6 +17,8 @@
     maxretry: 5             # 5 failed attempts
     ssh_port: 22            # Default SSH port
     webhook_url: ""         # Optional webhook URL for notifications
+    webhook_token: ""       # Optional webhook authentication token
+    webhook_timeout: 10     # Webhook timeout in seconds
 
   pre_tasks:
     - name: Verify supported operating system
@@ -24,6 +26,29 @@
         that:
           - ansible_os_family in supported_os_families
         fail_msg: "This playbook currently supports Debian/Ubuntu and RedHat-family distributions (RHEL/Rocky/Amazon Linux)."
+
+    - name: Validate variable ranges
+      assert:
+        that:
+          - bantime >= 60 and bantime <= 86400
+          - findtime >= 60 and findtime <= 3600
+          - maxretry >= 3 and maxretry <= 20
+          - ssh_port >= 1 and ssh_port <= 65535
+          - webhook_timeout >= 1 and webhook_timeout <= 30
+        fail_msg: |
+          Variable validation failed. Ensure:
+          - bantime: 60-86400 seconds (1 min - 24 hours)
+          - findtime: 60-3600 seconds (1 min - 1 hour)
+          - maxretry: 3-20 attempts
+          - ssh_port: 1-65535
+          - webhook_timeout: 1-30 seconds
+
+    - name: Validate webhook URL format if provided
+      assert:
+        that:
+          - webhook_url is match('^(https?://.*)?$')
+        fail_msg: "webhook_url must be empty or a valid HTTP/HTTPS URL"
+      when: webhook_url != ""
 
   tasks:
     - name: Update apt cache
