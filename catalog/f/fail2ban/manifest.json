@@ -79,16 +79,6 @@
       "arch": "both"
     },
     {
-      "distro": "fedora",
-      "version": "39",
-      "arch": "both"
-    },
-    {
-      "distro": "fedora",
-      "version": "40",
-      "arch": "both"
-    },
-    {
       "distro": "amazon",
       "version": "2",
       "arch": "both"

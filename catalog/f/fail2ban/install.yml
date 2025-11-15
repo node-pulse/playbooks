@@ -23,7 +23,7 @@
       assert:
         that:
           - ansible_os_family in supported_os_families
-        fail_msg: "This playbook currently supports Debian/Ubuntu and RedHat-family distributions (RHEL/Rocky/Fedora/Amazon Linux)."
+        fail_msg: "This playbook currently supports Debian/Ubuntu and RedHat-family distributions (RHEL/Rocky/Amazon Linux)."
 
   tasks:
     - name: Update apt cache
