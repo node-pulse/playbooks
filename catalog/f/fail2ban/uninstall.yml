@@ -1,0 +1,50 @@
+---
+- name: Uninstall Fail2Ban
+  hosts: all
+  become: true
+
+  vars:
+    supported_os_families:
+      - Debian
+      - RedHat
+
+  pre_tasks:
+    - name: Verify supported operating system
+      assert:
+        that:
+          - ansible_os_family in supported_os_families
+        fail_msg: "This playbook currently supports Debian/Ubuntu and RedHat-family distributions (RHEL/Rocky/Fedora/Amazon Linux)."
+
+    - name: Gather service facts
+      service_facts:
+
+  tasks:
+    - name: Stop fail2ban service if running
+      systemd:
+        name: fail2ban
+        state: stopped
+      when: "'fail2ban.service' in ansible_facts.services"
+
+    - name: Disable fail2ban service if present
+      systemd:
+        name: fail2ban
+        enabled: no
+      when: "'fail2ban.service' in ansible_facts.services"
+
+    - name: Remove fail2ban package (Debian family)
+      apt:
+        name: fail2ban
+        state: absent
+        purge: true
+      when: ansible_pkg_mgr == "apt"
+
+    - name: Remove fail2ban package (RPM-based)
+      package:
+        name: fail2ban
+        state: absent
+      when: ansible_pkg_mgr in ["dnf", "yum", "microdnf"]
+
+    - name: Remove fail2ban configuration directory
+      file:
+        path: /etc/fail2ban
+        state: absent

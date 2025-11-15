@@ -11,7 +11,7 @@ enabled = true
 filter = sshd
 
 # Log path to monitor
-logpath = /var/log/auth.log
+logpath = {{ ssh_log_path }}
 
 # SSH port to monitor
 port = {{ ssh_port }}

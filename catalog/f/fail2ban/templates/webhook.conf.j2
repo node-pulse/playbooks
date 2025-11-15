@@ -6,22 +6,22 @@
 [Definition]
 
 # Action triggered when an IP is banned
-actionban = curl -X POST "{{ webhook_url }}" \
+actionban = curl -X POST {{ webhook_url | quote }} \
     -H "Content-Type: application/json" \
     -d '{"event":"ban","ip":"<ip>","jail":"<name>","time":"<time>","failures":"<failures>","server":"{{ ansible_hostname }}"}'
 
 # Action triggered when an IP is unbanned
-actionunban = curl -X POST "{{ webhook_url }}" \
+actionunban = curl -X POST {{ webhook_url | quote }} \
     -H "Content-Type: application/json" \
     -d '{"event":"unban","ip":"<ip>","jail":"<name>","time":"<time>","server":"{{ ansible_hostname }}"}'
 
 # Action triggered when fail2ban starts
-actionstart = curl -X POST "{{ webhook_url }}" \
+actionstart = curl -X POST {{ webhook_url | quote }} \
     -H "Content-Type: application/json" \
     -d '{"event":"start","jail":"<name>","time":"<time>","server":"{{ ansible_hostname }}"}'
 
 # Action triggered when fail2ban stops
-actionstop = curl -X POST "{{ webhook_url }}" \
+actionstop = curl -X POST {{ webhook_url | quote }} \
     -H "Content-Type: application/json" \
     -d '{"event":"stop","jail":"<name>","time":"<time>","server":"{{ ansible_hostname }}"}'
 

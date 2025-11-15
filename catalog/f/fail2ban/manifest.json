@@ -19,10 +19,13 @@
   "category": "security",
   "tags": ["security", "ssh", "intrusion-prevention", "fail2ban", "firewall"],
 
-  "entry_point": "playbook.yml",
+  "entry_point": "install.yml",
 
   "structure": {
-    "playbook": "playbook.yml",
+    "playbooks": {
+      "install": "install.yml",
+      "uninstall": "uninstall.yml"
+    },
     "templates": ["templates/jail.local.j2", "templates/sshd.local.j2", "templates/webhook.conf.j2"],
     "files": []
   },
@@ -53,6 +56,46 @@
     {
       "distro": "debian",
       "version": "12",
+      "arch": "both"
+    },
+    {
+      "distro": "rhel",
+      "version": "8",
+      "arch": "both"
+    },
+    {
+      "distro": "rhel",
+      "version": "9",
+      "arch": "both"
+    },
+    {
+      "distro": "rocky",
+      "version": "8",
+      "arch": "both"
+    },
+    {
+      "distro": "rocky",
+      "version": "9",
+      "arch": "both"
+    },
+    {
+      "distro": "fedora",
+      "version": "39",
+      "arch": "both"
+    },
+    {
+      "distro": "fedora",
+      "version": "40",
+      "arch": "both"
+    },
+    {
+      "distro": "amazon",
+      "version": "2",
+      "arch": "both"
+    },
+    {
+      "distro": "amazon",
+      "version": "2023",
       "arch": "both"
     }
   ],
@@ -127,5 +170,5 @@
   "license": "MIT",
 
   "created_at": "2025-11-07T12:00:00Z",
-  "updated_at": "2025-11-07T12:00:00Z"
+  "updated_at": "2025-01-08T00:00:00Z"
 }

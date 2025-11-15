@@ -15,6 +15,7 @@
     "entry_point",
     "ansible_version",
     "os_support",
+    "structure",
     "license"
   ],
   "properties": {
@@ -118,10 +119,25 @@
     "structure": {
       "type": "object",
       "description": "File manifest (what files exist)",
+      "required": ["playbooks"],
       "properties": {
-        "playbook": {
-          "type": "string",
-          "description": "Main playbook file path"
+        "playbooks": {
+          "type": "object",
+          "description": "Named playbook entry points",
+          "required": ["install", "uninstall"],
+          "properties": {
+            "install": {
+              "type": "string",
+              "description": "Path to install playbook (install.yml)",
+              "pattern": "^[a-zA-Z0-9_./-]+\\.ya?ml$"
+            },
+            "uninstall": {
+              "type": "string",
+              "description": "Path to uninstall playbook (uninstall.yml)",
+              "pattern": "^[a-zA-Z0-9_./-]+\\.ya?ml$"
+            }
+          },
+          "additionalProperties": false
         },
         "templates": {
           "type": "array",

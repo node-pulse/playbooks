@@ -4,6 +4,13 @@
   become: true
 
   vars:
+    supported_os_families:
+      - Debian
+      - RedHat
+    ssh_log_paths:
+      Debian: /var/log/auth.log
+      RedHat: /var/log/secure
+    ssh_log_path: "{{ ssh_log_paths.get(ansible_os_family, '/var/log/auth.log') }}"
     # Default values (can be overridden)
     bantime: 3600           # 1 hour
     findtime: 600           # 10 minutes
@@ -11,22 +18,51 @@
     ssh_port: 22            # Default SSH port
     webhook_url: ""         # Optional webhook URL for notifications
 
+  pre_tasks:
+    - name: Verify supported operating system
+      assert:
+        that:
+          - ansible_os_family in supported_os_families
+        fail_msg: "This playbook currently supports Debian/Ubuntu and RedHat-family distributions (RHEL/Rocky/Fedora/Amazon Linux)."
+
   tasks:
     - name: Update apt cache
       apt:
         update_cache: yes
         cache_valid_time: 3600
-      when: ansible_os_family == "Debian"
+      when: ansible_pkg_mgr == "apt"
 
     - name: Install fail2ban package
       apt:
         name: fail2ban
         state: present
-      when: ansible_os_family == "Debian"
+      when: ansible_pkg_mgr == "apt"
+
+    - name: Install fail2ban package (RPM-based)
+      package:
+        name: fail2ban
+        state: present
+      when: ansible_pkg_mgr in ["dnf", "yum", "microdnf"]
 
     - name: Ensure fail2ban configuration directory exists
       file:
         path: /etc/fail2ban
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Ensure fail2ban jail.d directory exists
+      file:
+        path: /etc/fail2ban/jail.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Ensure fail2ban action.d directory exists
+      file:
+        path: /etc/fail2ban/action.d
         state: directory
         owner: root
         group: root
