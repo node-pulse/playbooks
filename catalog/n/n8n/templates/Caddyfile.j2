@@ -1,0 +1,34 @@
+{
+  log {
+    output stdout
+    format console
+  }
+}
+
+{% if n8n_domain != "" %}
+{{ n8n_domain }} {
+{% if enable_ssl %}
+  tls {{ ssl_email }}
+{% else %}
+  tls internal
+{% endif %}
+
+  reverse_proxy http://n8n:5678 {
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+  }
+
+  log {
+    output file /var/log/caddy/{{ n8n_domain }}.log
+  }
+}
+{% else %}
+:80 {
+  reverse_proxy http://n8n:5678 {
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+  }
+}
+{% endif %}

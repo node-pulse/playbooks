@@ -1,0 +1,20 @@
+-- PostgreSQL initialization script for n8n
+-- This script is used to initialize the database with any custom configurations
+
+-- Create extensions if needed
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Grant all privileges to n8n user
+GRANT ALL PRIVILEGES ON DATABASE {{ postgres_db }} TO {{ postgres_user }};
+
+-- Set timezone
+SET timezone = '{{ n8n_timezone }}';
+
+-- Log initialization
+DO $$
+BEGIN
+  RAISE NOTICE 'n8n PostgreSQL database initialized successfully';
+  RAISE NOTICE 'Database: %', '{{ postgres_db }}';
+  RAISE NOTICE 'User: %', '{{ postgres_user }}';
+  RAISE NOTICE 'Timezone: %', '{{ n8n_timezone }}';
+END $$;

@@ -1,0 +1,196 @@
+{
+  "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/refs/heads/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
+
+  "id": "pb_N8n7Qm5Pw2",
+  "name": "n8n Workflow Automation",
+  "version": "1.0.0",
+  "description": "Deploy n8n workflow automation platform with PostgreSQL, Redis, and Caddy reverse proxy",
+
+  "author": {
+    "name": "Yumin",
+    "email": "yuminops@gmail.com",
+    "url": "https://github.com/guiyumin",
+    "status": "community"
+  },
+
+  "homepage": "https://github.com/node-pulse/playbooks/tree/main/catalog/n/n8n",
+  "repository": "https://github.com/node-pulse/playbooks",
+
+  "category": "automation",
+  "tags": ["automation", "workflow", "n8n", "docker", "postgresql", "redis", "caddy"],
+
+  "entry_point": "install.yml",
+
+  "structure": {
+    "playbooks": {
+      "install": "install.yml",
+      "uninstall": "uninstall.yml"
+    },
+    "templates": [
+      "templates/docker-compose.yml.j2",
+      "templates/env.j2",
+      "templates/Caddyfile.j2",
+      "templates/postgres-init.sql.j2"
+    ],
+    "files": []
+  },
+
+  "ansible_version": ">=2.10",
+
+  "os_support": [
+    {
+      "distro": "ubuntu",
+      "version": "20.04",
+      "arch": "both"
+    },
+    {
+      "distro": "ubuntu",
+      "version": "22.04",
+      "arch": "both"
+    },
+    {
+      "distro": "ubuntu",
+      "version": "24.04",
+      "arch": "both"
+    },
+    {
+      "distro": "debian",
+      "version": "11",
+      "arch": "both"
+    },
+    {
+      "distro": "debian",
+      "version": "12",
+      "arch": "both"
+    }
+  ],
+
+  "variables": [
+    {
+      "name": "n8n_domain",
+      "label": "n8n Domain Name",
+      "type": "string",
+      "default": "",
+      "description": "Domain name for n8n (e.g., n8n.example.com). Leave empty for IP-based access",
+      "required": false,
+      "pattern": "^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,}$|^$"
+    },
+    {
+      "name": "n8n_port",
+      "label": "n8n HTTP Port",
+      "type": "integer",
+      "default": 5678,
+      "description": "External HTTP port for n8n access",
+      "required": false,
+      "min": 1024,
+      "max": 65535
+    },
+    {
+      "name": "n8n_encryption_key",
+      "label": "n8n Encryption Key",
+      "type": "string",
+      "default": "",
+      "description": "Encryption key for n8n credentials (auto-generated if empty)",
+      "required": false
+    },
+    {
+      "name": "postgres_password",
+      "label": "PostgreSQL Password",
+      "type": "string",
+      "default": "",
+      "description": "PostgreSQL database password (auto-generated if empty)",
+      "required": false
+    },
+    {
+      "name": "n8n_basic_auth_user",
+      "label": "Basic Auth Username",
+      "type": "string",
+      "default": "",
+      "description": "Basic auth username for n8n (optional, recommended for security)",
+      "required": false
+    },
+    {
+      "name": "n8n_basic_auth_password",
+      "label": "Basic Auth Password",
+      "type": "string",
+      "default": "",
+      "description": "Basic auth password for n8n (optional, recommended for security)",
+      "required": false
+    },
+    {
+      "name": "n8n_timezone",
+      "label": "Timezone",
+      "type": "string",
+      "default": "UTC",
+      "description": "Timezone for n8n (e.g., America/New_York, Europe/London)",
+      "required": false
+    },
+    {
+      "name": "enable_ssl",
+      "label": "Enable SSL/TLS",
+      "type": "boolean",
+      "default": false,
+      "description": "Enable automatic SSL/TLS with Let's Encrypt (requires valid domain)",
+      "required": false
+    },
+    {
+      "name": "ssl_email",
+      "label": "SSL Certificate Email",
+      "type": "string",
+      "default": "",
+      "description": "Email for Let's Encrypt SSL certificate notifications",
+      "required": false,
+      "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$|^$"
+    },
+    {
+      "name": "n8n_data_dir",
+      "label": "n8n Data Directory",
+      "type": "string",
+      "default": "/opt/n8n",
+      "description": "Directory to store n8n data, database, and configuration",
+      "required": false
+    },
+    {
+      "name": "redis_enabled",
+      "label": "Enable Redis Queue Mode",
+      "type": "boolean",
+      "default": true,
+      "description": "Enable Redis for queue mode (recommended for production)",
+      "required": false
+    },
+    {
+      "name": "n8n_webhook_url",
+      "label": "Webhook Base URL",
+      "type": "string",
+      "default": "",
+      "description": "Base URL for webhooks (auto-configured from domain if empty)",
+      "required": false
+    }
+  ],
+
+  "health_checks": [
+    {
+      "type": "command",
+      "command": "docker ps | grep -q n8n",
+      "timeout": 10
+    },
+    {
+      "type": "command",
+      "command": "curl -sf http://localhost:5678/healthz || curl -sf http://localhost:5678",
+      "timeout": 10
+    }
+  ],
+
+  "dangerous_operations": [
+    "Installs Docker and Docker Compose",
+    "Creates systemd service for n8n stack",
+    "Opens firewall ports for HTTP/HTTPS access",
+    "Stores database credentials in /opt/n8n/.env",
+    "Manages PostgreSQL database with persistent storage"
+  ],
+
+  "license": "MIT",
+
+  "created_at": "2025-11-16T00:00:00Z",
+  "updated_at": "2025-11-16T00:00:00Z"
+}
