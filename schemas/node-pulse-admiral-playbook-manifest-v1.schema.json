@@ -95,7 +95,8 @@
         "security",
         "proxy",
         "storage",
-        "dev-tools"
+        "dev-tools",
+        "automation"
       ]
     },
     "tags": {
