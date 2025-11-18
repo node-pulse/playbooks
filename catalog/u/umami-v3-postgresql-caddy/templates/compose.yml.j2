@@ -1,0 +1,60 @@
+version: '3'
+
+services:
+  umami:
+    image: ghcr.io/umami-software/umami:{{ umami_version }}
+    container_name: umami
+{% if final_caddy_mode == 'docker' %}
+    expose:
+      - "3000"
+{% else %}
+    ports:
+      - "{{ umami_port }}:3000"
+{% endif %}
+    environment:
+      DATABASE_URL: postgresql://{{ postgres_user }}:{{ postgres_password }}@db:5432/{{ postgres_db }}
+      APP_SECRET: ${APP_SECRET}
+      DISABLE_TELEMETRY: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+    init: true
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/heartbeat || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
+  db:
+    image: postgres:15-alpine
+    container_name: umami-db
+    environment:
+      POSTGRES_DB: {{ postgres_db }}
+      POSTGRES_USER: {{ postgres_user }}
+      POSTGRES_PASSWORD: {{ postgres_password }}
+    volumes:
+      - {{ umami_data_dir }}/postgres:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ postgres_user }} -d {{ postgres_db }}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+{% if final_caddy_mode == 'docker' %}
+  caddy:
+    image: caddy:2-alpine
+    container_name: umami-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - {{ umami_data_dir }}/caddy/data:/data
+      - {{ umami_data_dir }}/caddy/config:/config
+    depends_on:
+      - umami
+    restart: always
+{% endif %}

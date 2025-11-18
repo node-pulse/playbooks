@@ -1,0 +1,245 @@
+{
+  "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/refs/heads/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
+
+  "id": "pb_EPPaGK9LcE",
+  "name": "Umami v3 (PostgreSQL + Caddy)",
+  "version": "1.0.0",
+  "description": "Opinionated deployment of Umami v3 with PostgreSQL database and Caddy reverse proxy for automatic HTTPS",
+
+  "author": {
+    "name": "Yumin",
+    "email": "yuminops@gmail.com",
+    "url": "https://github.com/guiyumin",
+    "status": "community"
+  },
+
+  "homepage": "https://github.com/node-pulse/playbooks/tree/main/catalog/u/umami-v3-postgresql-caddy",
+  "repository": "https://github.com/node-pulse/playbooks",
+
+  "category": "monitoring",
+  "tags": [
+    "analytics",
+    "monitoring",
+    "privacy",
+    "web-analytics",
+    "gdpr",
+    "postgresql",
+    "caddy"
+  ],
+
+  "entry_point": "install.yml",
+
+  "structure": {
+    "playbooks": {
+      "install": "install.yml",
+      "uninstall": "uninstall.yml"
+    },
+    "templates": [
+      "templates/compose.yml.j2",
+      "templates/env.j2",
+      "templates/caddy.conf.j2",
+      "templates/umami-system.conf.j2"
+    ],
+    "files": []
+  },
+
+  "ansible_version": ">=2.10",
+
+  "os_support": [
+    {
+      "distro": "ubuntu",
+      "version": "20.04",
+      "arch": "both"
+    },
+    {
+      "distro": "ubuntu",
+      "version": "22.04",
+      "arch": "both"
+    },
+    {
+      "distro": "ubuntu",
+      "version": "24.04",
+      "arch": "both"
+    },
+    {
+      "distro": "debian",
+      "version": "11",
+      "arch": "both"
+    },
+    {
+      "distro": "debian",
+      "version": "12",
+      "arch": "both"
+    },
+    {
+      "distro": "rhel",
+      "version": "8",
+      "arch": "both"
+    },
+    {
+      "distro": "rhel",
+      "version": "9",
+      "arch": "both"
+    },
+    {
+      "distro": "rocky",
+      "version": "8",
+      "arch": "both"
+    },
+    {
+      "distro": "rocky",
+      "version": "9",
+      "arch": "both"
+    },
+    {
+      "distro": "alma",
+      "version": "8",
+      "arch": "both"
+    },
+    {
+      "distro": "alma",
+      "version": "9",
+      "arch": "both"
+    },
+    {
+      "distro": "oracle",
+      "version": "8",
+      "arch": "both"
+    },
+    {
+      "distro": "oracle",
+      "version": "9",
+      "arch": "both"
+    },
+    {
+      "distro": "amazon",
+      "version": "2",
+      "arch": "both"
+    },
+    {
+      "distro": "amazon",
+      "version": "2023",
+      "arch": "both"
+    }
+  ],
+
+  "variables": [
+    {
+      "name": "umami_domain",
+      "label": "Domain Name",
+      "type": "string",
+      "description": "Fully qualified domain name for Umami (e.g., analytics.example.com)",
+      "required": true,
+      "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$"
+    },
+    {
+      "name": "umami_port",
+      "label": "Application Port",
+      "type": "integer",
+      "default": 3000,
+      "description": "Internal port for Umami application (proxied by Caddy)",
+      "required": false,
+      "min": 1024,
+      "max": 65535
+    },
+    {
+      "name": "postgres_user",
+      "label": "PostgreSQL Username",
+      "type": "string",
+      "default": "umami",
+      "description": "Database username for Umami",
+      "required": false,
+      "pattern": "^[a-z_][a-z0-9_]*$"
+    },
+    {
+      "name": "postgres_password",
+      "label": "PostgreSQL Password",
+      "type": "password",
+      "description": "Database password for Umami (auto-generated if not provided)",
+      "required": false
+    },
+    {
+      "name": "postgres_db",
+      "label": "PostgreSQL Database Name",
+      "type": "string",
+      "default": "umami",
+      "description": "Database name for Umami",
+      "required": false,
+      "pattern": "^[a-z_][a-z0-9_]*$"
+    },
+    {
+      "name": "app_secret",
+      "label": "Application Secret Key",
+      "type": "password",
+      "description": "Secret key for Umami session encryption (auto-generated if not provided)",
+      "required": false
+    },
+    {
+      "name": "umami_version",
+      "label": "Umami Version",
+      "type": "string",
+      "default": "postgresql-latest",
+      "description": "Docker image tag for Umami (e.g., postgresql-latest, postgresql-v3.0.0)",
+      "required": false,
+      "pattern": "^postgresql-.*$"
+    },
+    {
+      "name": "enable_ssl",
+      "label": "Enable HTTPS/SSL",
+      "type": "boolean",
+      "default": true,
+      "description": "Automatically obtain and configure SSL certificate via Caddy",
+      "required": false
+    },
+    {
+      "name": "admin_email",
+      "label": "Admin Email (for SSL)",
+      "type": "string",
+      "description": "Email address for SSL certificate notifications (required if SSL enabled)",
+      "required": false,
+      "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    },
+    {
+      "name": "caddy_mode",
+      "label": "Caddy Deployment Mode",
+      "type": "select",
+      "default": "auto",
+      "description": "How to handle Caddy reverse proxy: auto-detect, deploy in Docker, or install/use system Caddy",
+      "required": false,
+      "options": ["auto", "docker", "system"]
+    }
+  ],
+
+  "health_checks": [
+    {
+      "type": "tcp",
+      "port": 3000,
+      "timeout": 10
+    },
+    {
+      "type": "http",
+      "url": "http://localhost:3000/api/heartbeat",
+      "expect_status": 200,
+      "timeout": 10
+    },
+    {
+      "type": "command",
+      "command": "docker ps | grep -q umami",
+      "timeout": 5
+    }
+  ],
+
+  "dangerous_operations": [
+    "Installs Docker and Docker Compose if not present",
+    "Creates PostgreSQL database with persistent storage",
+    "Configures Caddy as reverse proxy with automatic HTTPS",
+    "Opens ports 80 and 443 for web access",
+    "Stores analytics data in /opt/umami/data directory",
+    "Creates system service for automatic startup"
+  ],
+
+  "license": "MIT",
+
+  "created_at": "2025-11-18T00:00:00Z",
+  "updated_at": "2025-11-18T00:00:00Z"
+}
