@@ -1,10 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/refs/heads/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
 
-  "id": "pb_EPPaGK9LcE",
-  "name": "Umami v3 (PostgreSQL + Caddy)",
+  "id": "pb_89MKMAAanI",
+  "name": "Umami v3 (PostgreSQL + Nginx)",
   "version": "1.0.0",
-  "description": "Opinionated deployment of Umami v3 with PostgreSQL database and Caddy reverse proxy for automatic HTTPS",
+  "description": "Opinionated deployment of Umami v3 with PostgreSQL database and Nginx reverse proxy with automatic SSL via Certbot",
 
   "author": {
     "name": "Yumin",
@@ -13,7 +13,7 @@
     "status": "community"
   },
 
-  "homepage": "https://github.com/node-pulse/playbooks/tree/main/catalog/u/umami-v3-postgresql-caddy",
+  "homepage": "https://github.com/node-pulse/playbooks/tree/main/catalog/u/umami-v3-postgresql-nginx",
   "repository": "https://github.com/node-pulse/playbooks",
 
   "category": "monitoring",
@@ -24,7 +24,7 @@
     "web-analytics",
     "gdpr",
     "postgresql",
-    "caddy"
+    "nginx"
   ],
 
   "entry_point": "install.yml",
@@ -37,7 +37,8 @@
     "templates": [
       "templates/compose.yml.j2",
       "templates/env.j2",
-      "templates/umami-system.conf.j2"
+      "templates/nginx-http.conf.j2",
+      "templates/nginx-https.conf.j2"
     ],
     "files": []
   },
@@ -136,7 +137,7 @@
       "label": "Application Port",
       "type": "integer",
       "default": 3000,
-      "description": "Internal port for Umami application (proxied by Caddy)",
+      "description": "Internal port for Umami application (proxied by Nginx)",
       "required": false,
       "min": 1024,
       "max": 65535
@@ -187,7 +188,7 @@
       "label": "Enable HTTPS/SSL",
       "type": "boolean",
       "default": true,
-      "description": "Automatically obtain and configure SSL certificate via Caddy",
+      "description": "Automatically obtain and configure SSL certificate via Certbot",
       "required": false
     },
     {
@@ -197,6 +198,15 @@
       "description": "Email address for SSL certificate notifications (required if SSL enabled)",
       "required": false,
       "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    },
+    {
+      "name": "umami_install_dir",
+      "label": "Installation Directory",
+      "type": "string",
+      "default": "/opt/umami",
+      "description": "Directory where Umami will be installed",
+      "required": false,
+      "pattern": "^/[a-zA-Z0-9/_-]+$"
     }
   ],
 
@@ -216,16 +226,22 @@
       "type": "command",
       "command": "docker ps | grep -q umami",
       "timeout": 5
+    },
+    {
+      "type": "command",
+      "command": "systemctl is-active nginx",
+      "timeout": 5
     }
   ],
 
   "dangerous_operations": [
     "Installs Docker and Docker Compose if not present",
     "Creates PostgreSQL database with persistent storage",
-    "Configures Caddy as reverse proxy with automatic HTTPS",
+    "Installs or configures Nginx as reverse proxy",
+    "Installs Certbot and obtains SSL certificate from Let's Encrypt",
     "Opens ports 80 and 443 for web access",
     "Stores analytics data in /opt/umami/data directory",
-    "Creates system service for automatic startup"
+    "May modify Nginx configuration in /etc/nginx/sites-available/"
   ],
 
   "license": "MIT",

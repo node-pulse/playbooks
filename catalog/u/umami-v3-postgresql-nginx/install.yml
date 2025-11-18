@@ -1,5 +1,5 @@
 ---
-- name: Install Umami Web Analytics
+- name: Install Umami Web Analytics with Nginx
   hosts: all
   become: yes
   vars:
@@ -30,10 +30,10 @@
         app_secret: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
       when: app_secret is not defined or app_secret | length == 0
 
-    # Caddy Detection Logic
-    - name: Check if system Caddy is installed
-      command: which caddy
-      register: caddy_binary
+    # Nginx Detection Logic
+    - name: Check if system Nginx is installed
+      command: which nginx
+      register: nginx_binary
       ignore_errors: yes
       changed_when: false
 
@@ -49,27 +49,27 @@
       register: ports_check
       changed_when: false
 
-    - name: Fail if ports are occupied and Caddy is not installed
+    - name: Fail if ports are occupied and Nginx is not installed
       fail:
         msg: |
-          ERROR: Ports 80 and/or 443 are already in use, but Caddy is not installed.
+          ERROR: Ports 80 and/or 443 are already in use, but Nginx is not installed.
 
-          This playbook uses system Caddy for multi-app support.
+          This playbook uses system Nginx for multi-app support.
           Options:
-          1. Free up ports 80/443 and re-run (playbook will install system Caddy)
-          2. Install Caddy manually first
+          1. Free up ports 80/443 and re-run (playbook will install system Nginx)
+          2. Install Nginx manually first
 
-          If you prefer Nginx, use the umami-v3-postgresql-nginx playbook variant.
+          If you prefer Caddy, use the umami-v3-postgresql-caddy playbook variant.
       when:
-        - caddy_binary.rc != 0
+        - nginx_binary.rc != 0
         - ports_check.stdout == 'in_use'
 
-    - name: Display Caddy deployment decision
+    - name: Display Nginx deployment decision
       debug:
         msg:
-          - "Deploying with system Caddy (supports multiple applications on one server)"
-          - "{{ 'Will use existing Caddy installation' if caddy_binary.rc == 0 else 'Will install Caddy from official repository' }}"
-          - "Configuration: /etc/caddy/conf.d/umami.conf"
+          - "Deploying with system Nginx + Certbot SSL (supports multiple applications on one server)"
+          - "{{ 'Will use existing Nginx installation' if nginx_binary.rc == 0 else 'Will install Nginx from distribution repository' }}"
+          - "SSL: Automatic via Certbot"
 
     - name: Install required packages
       package:
@@ -160,104 +160,66 @@
         dest: "{{ umami_install_dir }}/compose.yml"
         mode: '0644'
 
-    # System Caddy - Install or use existing Caddy installation
-    - name: Check if system Caddy is already installed
-      command: which caddy
-      register: system_caddy_check
+    # System Nginx Mode - Install or use existing Nginx installation
+    - name: Check if system Nginx is already installed
+      command: which nginx
+      register: system_nginx_check
       ignore_errors: yes
       changed_when: false
-      when: final_caddy_mode == 'system'
 
-    - name: Install Caddy from official repository (Debian/Ubuntu)
-      block:
-        - name: Install Caddy dependencies
-          apt:
-            name:
-              - debian-keyring
-              - debian-archive-keyring
-              - apt-transport-https
-            state: present
-            update_cache: yes
-
-        - name: Add Caddy GPG key
-          apt_key:
-            url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
-            state: present
-
-        - name: Add Caddy repository
-          apt_repository:
-            repo: "deb https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
-            state: present
-            filename: caddy-stable
-
-        - name: Install Caddy
-          apt:
-            name: caddy
-            state: present
-            update_cache: yes
+    - name: Install Nginx (Debian/Ubuntu)
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
       when:
-        - final_caddy_mode == 'system'
-        - system_caddy_check.rc != 0
+        - system_nginx_check.rc != 0
         - ansible_os_family == "Debian"
 
-    - name: Install Caddy from official repository (RHEL/CentOS/Rocky/Alma)
-      block:
-        - name: Add Caddy repository
-          yum_repository:
-            name: caddy
-            description: Caddy Repository
-            baseurl: https://dl.cloudsmith.io/public/caddy/stable/rpm/el/$releasever/$basearch
-            gpgcheck: yes
-            gpgkey: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
-            enabled: yes
-
-        - name: Install Caddy
-          yum:
-            name: caddy
-            state: present
+    - name: Install Nginx (RHEL/CentOS/Rocky/Alma)
+      yum:
+        name: nginx
+        state: present
       when:
-        - final_caddy_mode == 'system'
-        - system_caddy_check.rc != 0
+        - system_nginx_check.rc != 0
         - ansible_os_family == "RedHat"
 
-    - name: Start and enable Caddy service
+    - name: Start and enable Nginx service
       systemd:
-        name: caddy
+        name: nginx
         state: started
         enabled: yes
-      when: final_caddy_mode == 'system'
 
-    - name: Ensure /etc/caddy/conf.d directory exists
-      file:
-        path: /etc/caddy/conf.d
-        state: directory
-        mode: '0755'
-      when: final_caddy_mode == 'system'
-
-    - name: Create Umami configuration for system Caddy
+    - name: Create initial HTTP Nginx configuration (for Certbot validation)
       template:
-        src: templates/umami-system.conf.j2
-        dest: /etc/caddy/conf.d/umami.conf
+        src: templates/nginx-http.conf.j2
+        dest: /etc/nginx/sites-available/umami
         mode: '0644'
-      when: final_caddy_mode == 'system'
-      notify: reload_caddy
+      when: ansible_os_family == "Debian"
 
-    - name: Check if import directive exists in main Caddyfile
-      shell: grep -q "import /etc/caddy/conf.d/\*.conf" /etc/caddy/Caddyfile || echo "missing"
-      register: import_check
+    - name: Create initial HTTP Nginx configuration (for Certbot validation) - RHEL
+      template:
+        src: templates/nginx-http.conf.j2
+        dest: /etc/nginx/conf.d/umami.conf
+        mode: '0644'
+      when: ansible_os_family == "RedHat"
+
+    - name: Enable Nginx site (Debian/Ubuntu)
+      file:
+        src: /etc/nginx/sites-available/umami
+        dest: /etc/nginx/sites-enabled/umami
+        state: link
+      when: ansible_os_family == "Debian"
+      notify: reload_nginx
+
+    - name: Test Nginx configuration
+      command: nginx -t
       changed_when: false
-      when: final_caddy_mode == 'system'
 
-    - name: Add import directive to main Caddyfile if missing
-      lineinfile:
-        path: /etc/caddy/Caddyfile
-        line: "import /etc/caddy/conf.d/*.conf"
-        insertafter: EOF
-        create: no
-      when:
-        - final_caddy_mode == 'system'
-        - import_check.stdout == 'missing'
-      notify: reload_caddy
+    - name: Reload Nginx
+      systemd:
+        name: nginx
+        state: reloaded
 
     - name: Pull Umami Docker images
       command: docker compose pull
@@ -282,6 +244,55 @@
       retries: 30
       delay: 10
 
+    # SSL Certificate with Certbot
+    - name: Install Certbot (Debian/Ubuntu)
+      apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+      when:
+        - enable_ssl
+        - ansible_os_family == "Debian"
+
+    - name: Install Certbot (RHEL/Rocky/Alma)
+      yum:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+      when:
+        - enable_ssl
+        - ansible_os_family == "RedHat"
+
+    - name: Obtain SSL certificate with Certbot
+      command: >
+        certbot --nginx
+        -d {{ umami_domain }}
+        --non-interactive
+        --agree-tos
+        --email {{ admin_email }}
+        --redirect
+      when: enable_ssl
+      register: certbot_result
+      changed_when: "'Successfully received certificate' in certbot_result.stdout"
+
+    - name: Update Nginx configuration with SSL optimizations
+      template:
+        src: templates/nginx-https.conf.j2
+        dest: "{{ '/etc/nginx/sites-available/umami' if ansible_os_family == 'Debian' else '/etc/nginx/conf.d/umami.conf' }}"
+        mode: '0644'
+      when: enable_ssl
+      notify: reload_nginx
+
+    - name: Setup automatic certificate renewal
+      cron:
+        name: "Renew Let's Encrypt certificates"
+        minute: "0"
+        hour: "0,12"
+        job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
+      when: enable_ssl
+
     - name: Display installation summary
       debug:
         msg:
@@ -297,6 +308,8 @@
           - "Installation directory: {{ umami_install_dir }}"
           - "Data directory: {{ umami_data_dir }}"
           - "Database: PostgreSQL ({{ postgres_db }})"
+          - "Reverse Proxy: Nginx"
+          - "SSL Certificate: {{ 'Enabled (Let\'s Encrypt)' if enable_ssl else 'Disabled' }}"
           - ""
           - "To manage the service:"
           - "  Start:   cd {{ umami_install_dir }} && docker compose start"
@@ -305,7 +318,7 @@
           - "  Logs:    cd {{ umami_install_dir }} && docker compose logs -f"
 
   handlers:
-    - name: reload_caddy
+    - name: reload_nginx
       systemd:
-        name: caddy
+        name: nginx
         state: reloaded

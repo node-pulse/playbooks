@@ -1,0 +1,75 @@
+---
+- name: Uninstall Umami Web Analytics
+  hosts: all
+  become: yes
+  vars:
+    umami_install_dir: "{{ umami_install_dir | default('/opt/umami') }}"
+    umami_data_dir: "{{ umami_install_dir }}/data"
+
+  tasks:
+    - name: Check if Umami installation exists
+      stat:
+        path: "{{ umami_install_dir }}/compose.yml"
+      register: umami_exists
+
+    - name: Stop and remove Umami containers
+      command: docker compose down -v
+      args:
+        chdir: "{{ umami_install_dir }}"
+      when: umami_exists.stat.exists
+      ignore_errors: yes
+
+    - name: Remove Umami Docker images
+      command: docker compose down --rmi all
+      args:
+        chdir: "{{ umami_install_dir }}"
+      when: umami_exists.stat.exists
+      ignore_errors: yes
+
+    - name: Prompt for data deletion
+      pause:
+        prompt: |
+
+          WARNING: Do you want to delete all Umami data including analytics database?
+          This action is irreversible and will delete:
+            - All analytics data in {{ umami_data_dir }}
+            - PostgreSQL database and volumes
+            - Configuration files
+
+          Type 'yes' to confirm data deletion, or 'no' to keep data
+      register: delete_data_prompt
+      when: umami_exists.stat.exists
+
+    - name: Remove Umami data directory
+      file:
+        path: "{{ umami_data_dir }}"
+        state: absent
+      when:
+        - umami_exists.stat.exists
+        - delete_data_prompt.user_input | default('no') | lower == 'yes'
+
+    - name: Remove Umami installation directory
+      file:
+        path: "{{ umami_install_dir }}"
+        state: absent
+      when: umami_exists.stat.exists
+
+    - name: Display uninstall summary
+      debug:
+        msg:
+          - "Umami Web Analytics has been uninstalled!"
+          - "=========================================="
+          - "Removed:"
+          - "  - Docker containers and images"
+          - "  - Configuration files"
+          - "{{ '  - Analytics data and database' if (delete_data_prompt.user_input | default('no') | lower == 'yes') else '  - Analytics data preserved in ' + umami_data_dir }}"
+          - ""
+          - "Docker and Docker Compose remain installed for other applications."
+          - "To remove Docker completely, run: apt remove docker-ce docker-ce-cli (Debian/Ubuntu)"
+          - "                            or: yum remove docker-ce docker-ce-cli (RHEL/CentOS/Rocky/Alma)"
+      when: umami_exists.stat.exists
+
+    - name: Display message if Umami not found
+      debug:
+        msg: "Umami installation not found at {{ umami_install_dir }}"
+      when: not umami_exists.stat.exists

@@ -63,78 +63,53 @@ This playbook deploys:
 | `enable_ssl` | boolean | `true` | Enable automatic HTTPS via Caddy |
 | `umami_install_dir` | string | `/opt/umami` | Installation directory |
 
-## Caddy Deployment Modes
+## System Caddy Deployment
 
-> **Note**: Caddy is mandatory in this playbook. If you prefer Nginx/Traefik, use a different playbook variant.
+> **Note**: This playbook uses system Caddy only (not Docker). This enables running multiple applications on one server behind a shared reverse proxy.
 
-### Deployment Cases Overview
+### How It Works
 
-There are **2 main cases** for Caddy deployment:
+**System Caddy** (supports multiple apps on one server):
 
-**Case 1: Docker Caddy**
-- Caddy deployed as a Docker container alongside Umami
-- Handles ports 80/443
-- Fully self-contained
-
-**Case 2: System Caddy**
 - Caddy installed/running as a system service
-- Two subcases:
-  - **2.1: Use existing Caddy** - Caddy already installed, playbook adds `/etc/caddy/conf.d/umami.conf`
-  - **2.2: Install Caddy** - Caddy not found, playbook installs from official repository, then configures
+- Enables running multiple applications behind one Caddy instance
+- Better resource utilization and budget control
+- Two scenarios:
+  - **Use existing Caddy** - Caddy already installed, playbook adds `/etc/caddy/conf.d/umami.conf`
+  - **Install Caddy** - Caddy not found, playbook installs from official repository, then configures
 
-The playbook automatically determines which case to use based on your system state.
+> **Why system Caddy only?** Docker Caddy would monopolize ports 80/443, preventing you from running other applications on the same server. System Caddy allows multiple apps to share one reverse proxy via `/etc/caddy/conf.d/*.conf` pattern.
 
-**Decision Tree:**
+### Deployment Logic
+
 ```
-caddy_mode=auto
+Playbook runs:
     │
-    ├─ Caddy binary found? ────────── YES → Case 2.1 (Use existing system Caddy)
+    ├─ Caddy installed? ──── YES → Use existing system Caddy
+    │                              Add /etc/caddy/conf.d/umami.conf
     │
-    ├─ Ports 80/443 free? ────────── YES → Case 1 (Deploy Docker Caddy)
+    ├─ Ports 80/443 free? ─── YES → Install system Caddy
+    │                               Configure for Umami
     │
-    └─ Ports occupied + No Caddy ─── ❌ FAIL (User must choose)
-
-caddy_mode=docker ──────────────────────→ Case 1 (Deploy Docker Caddy)
-
-caddy_mode=system
-    │
-    └─ Caddy installed? ──── YES → Case 2.1 (Use existing)
-                        └─── NO ─→ Case 2.2 (Install, then configure)
+    └─ Ports occupied + No Caddy → ❌ FAIL with clear error
 ```
 
-### Auto Mode (Default)
-The playbook automatically detects the best deployment strategy:
-- ✅ **Existing Caddy found** → Case 2.1 (Use existing system Caddy)
-- ✅ **Ports 80/443 free** → Case 1 (Deploy Docker Caddy)
-- ❌ **Ports occupied + No Caddy** → **Fails with clear error message**
+### Automatic Detection
 
-If auto-detection fails, you'll get actionable options:
-1. Free up ports 80/443 and re-run
-2. Manually set `-e caddy_mode=system` (installs Caddy for you - Case 2.2)
-3. Use a different playbook variant if you need Nginx/Traefik
+The playbook automatically:
+- ✅ **Existing Caddy found** → Uses it, adds `/etc/caddy/conf.d/umami.conf`
+- ✅ **Ports 80/443 free** → Installs system Caddy, then configures
+- ❌ **Ports occupied + No Caddy** → **Fails with error** (free ports or install Caddy first)
 
-### Docker Mode
-Force deployment of Caddy in a Docker container:
-```bash
--e caddy_mode=docker
-```
-- Deploys Caddy as a Docker service
-- Handles HTTPS certificates automatically
-- Opens ports 80 and 443
-- Best for dedicated Umami servers
+### Configuration Details
 
-### System Mode
-Install or use existing system Caddy:
-```bash
--e caddy_mode=system
-```
-- **If Caddy exists**: Integrates with it via `/etc/caddy/conf.d/umami.conf`
-- **If Caddy missing**: Installs Caddy from official repository
+- **If Caddy exists**: Integrates via `/etc/caddy/conf.d/umami.conf`
+- **If Caddy missing**: Installs from official repository
 - Creates reverse proxy configuration
 - Adds `import /etc/caddy/conf.d/*.conf` to main Caddyfile (if not present)
 - Reloads Caddy automatically
-- Umami exposed on localhost:3000 only
-- Best for servers running multiple applications
+- Umami exposed on `127.0.0.1:3000` only (not accessible externally)
+- **Perfect for servers running multiple applications**
 
 ## Usage
 
@@ -146,25 +121,11 @@ ansible-playbook -i inventory install.yml \
   -e admin_email=admin@example.com
 ```
 
-### Force Docker Caddy Mode
-
-```bash
-ansible-playbook -i inventory install.yml \
-  -e umami_domain=analytics.example.com \
-  -e admin_email=admin@example.com \
-  -e caddy_mode=docker
-```
-
-### Install or Use System Caddy
-
-```bash
-ansible-playbook -i inventory install.yml \
-  -e umami_domain=analytics.example.com \
-  -e admin_email=admin@example.com \
-  -e caddy_mode=system
-```
-
-If Caddy is not installed, it will be installed from the official Caddy repository.
+This will automatically:
+1. Detect if Caddy is installed
+2. Install Caddy if needed (from official repository)
+3. Configure Caddy for Umami with automatic HTTPS
+4. Deploy Umami and PostgreSQL in Docker
 
 ### Uninstallation
 
@@ -319,18 +280,19 @@ This playbook performs the following operations:
 
 ## Architecture
 
-### Docker Mode
 ```
-Internet → Caddy (80/443) → Umami (3000) → PostgreSQL (5432)
-           Docker Container   Docker         Docker
+Internet → System Caddy (80/443) → Umami (127.0.0.1:3000) → PostgreSQL (5432)
+           apt/yum installed       Docker Container        Docker Container
+           /etc/caddy/conf.d
+
+           ↓ Can add more apps
+
+           → App2 (127.0.0.1:3001)
+           → App3 (127.0.0.1:3002)
+           etc.
 ```
 
-### System Mode
-```
-Internet → System Caddy (80/443) → Umami (3000) → PostgreSQL (5432)
-           apt/yum installed       Docker         Docker
-           /etc/caddy/conf.d
-```
+**Multi-app support**: Each app gets its own config file in `/etc/caddy/conf.d/`, all sharing one Caddy instance.
 
 ## Alternative Playbooks
 
