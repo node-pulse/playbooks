@@ -277,7 +277,7 @@
       register: certbot_result
       changed_when: "'Successfully received certificate' in certbot_result.stdout"
 
-    - name: Update Nginx configuration with SSL optimizations
+    - name: Apply optimized HTTPS configuration
       template:
         src: templates/nginx-https.conf.j2
         dest: "{{ '/etc/nginx/sites-available/umami' if ansible_os_family == 'Debian' else '/etc/nginx/conf.d/umami.conf' }}"

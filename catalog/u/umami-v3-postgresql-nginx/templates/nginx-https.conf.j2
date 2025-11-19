@@ -16,8 +16,11 @@ server {
     listen [::]:443 ssl http2;
     server_name {{ umami_domain }};
 
-    # SSL certificates managed by Certbot
-    # Certbot will add ssl_certificate and ssl_certificate_key directives here
+    # SSL certificates (managed by Certbot)
+    ssl_certificate /etc/letsencrypt/live/{{ umami_domain }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ umami_domain }}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
     # Security headers
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
