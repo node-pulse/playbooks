@@ -8,7 +8,7 @@
     umami_port: "{{ umami_port | default(3000) }}"
     postgres_user: "{{ postgres_user | default('umami') }}"
     postgres_db: "{{ postgres_db | default('umami') }}"
-    umami_version: "{{ umami_version | default('postgresql-latest') }}"
+    umami_version: "postgresql-latest"
     enable_ssl: "{{ enable_ssl | default(true) }}"
 
   tasks:

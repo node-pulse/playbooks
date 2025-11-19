@@ -3,7 +3,7 @@
 
   "id": "pb_89MKMAAanI",
   "name": "Umami v3 (PostgreSQL + Nginx)",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Opinionated deployment of Umami v3 with PostgreSQL database and Nginx reverse proxy with automatic SSL via Certbot",
 
   "author": {
@@ -173,15 +173,6 @@
       "type": "password",
       "description": "Secret key for Umami session encryption (auto-generated if not provided)",
       "required": false
-    },
-    {
-      "name": "umami_version",
-      "label": "Umami Version",
-      "type": "string",
-      "default": "postgresql-latest",
-      "description": "Docker image tag for Umami (e.g., postgresql-latest, postgresql-v3.0.0)",
-      "required": false,
-      "pattern": "^postgresql-.*$"
     },
     {
       "name": "enable_ssl",
