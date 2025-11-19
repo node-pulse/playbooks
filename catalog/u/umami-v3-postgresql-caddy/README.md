@@ -17,19 +17,18 @@ Umami is a simple, fast, privacy-focused alternative to Google Analytics that:
 
 This playbook deploys:
 - **Umami v3** - Modern web analytics (Docker)
-- **PostgreSQL 15** - Database backend (Docker)
-- **Caddy 2** - Reverse proxy with automatic HTTPS (Docker or System integration)
+- **PostgreSQL 18** - Database backend (Docker)
+- **Caddy 2** - Reverse proxy with automatic HTTPS (System integration)
 
 ## What This Playbook Does
 
 - Installs Docker and Docker Compose (if not already installed)
-- Deploys Umami v3 and PostgreSQL using Docker containers
-- **Smart Caddy deployment** with 3 modes:
-  - **Auto-detect** - Automatically determines the best Caddy deployment strategy
-  - **Docker mode** - Deploys Caddy in a Docker container (new installations)
-  - **System mode** - Integrates with existing system Caddy installation
-  - **Disabled mode** - Skip Caddy, expose Umami on port only (use your own proxy)
-- Creates systemd integration for automatic startup
+- Deploys Umami v3 and PostgreSQL 18 using Docker containers
+- **System Caddy deployment** for multi-app support:
+  - Automatically detects and uses existing system Caddy installation
+  - Installs Caddy from official repository if not found
+  - Configures automatic HTTPS via Let's Encrypt
+  - Enables running multiple applications on one server
 - Configures health checks and monitoring
 
 ## Requirements
@@ -53,7 +52,6 @@ This playbook deploys:
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `caddy_mode` | select | `auto` | Caddy deployment mode: `auto`, `docker`, `system`, or `disabled` |
 | `umami_port` | integer | `3000` | Internal port for Umami application |
 | `postgres_user` | string | `umami` | PostgreSQL username |
 | `postgres_password` | password | auto-generated | PostgreSQL password |
@@ -113,7 +111,7 @@ The playbook automatically:
 
 ## Usage
 
-### Basic Installation (Auto-detect Caddy)
+### Basic Installation
 
 ```bash
 ansible-playbook -i inventory install.yml \
@@ -125,7 +123,7 @@ This will automatically:
 1. Detect if Caddy is installed
 2. Install Caddy if needed (from official repository)
 3. Configure Caddy for Umami with automatic HTTPS
-4. Deploy Umami and PostgreSQL in Docker
+4. Deploy Umami and PostgreSQL 18 in Docker
 
 ### Uninstallation
 
@@ -175,7 +173,7 @@ cd /opt/umami && docker compose pull && docker compose up -d
 
 ### System Caddy Integration
 
-If using `caddy_mode=system`, your Umami configuration is at:
+Your Umami configuration is at:
 ```
 /etc/caddy/conf.d/umami.conf
 ```
@@ -188,8 +186,9 @@ systemctl reload caddy
 ## Data Storage
 
 All data is stored in `/opt/umami/data/`:
-- `postgres/` - PostgreSQL database files
-- `caddy/` - SSL certificates and Caddy configuration (Docker mode only)
+- `postgres/` - PostgreSQL 18 database files
+
+SSL certificates are managed by system Caddy at `/var/lib/caddy/`.
 
 ## Security Features
 
@@ -210,18 +209,9 @@ The playbook configures three health checks:
 
 ### Playbook fails: "Ports 80 and/or 443 are already in use"
 
-This error occurs when auto-detection finds ports occupied but no Caddy installed.
+This error occurs when ports are occupied but Caddy is not installed.
 
-**Solution 1: Use system Caddy mode**
-```bash
-ansible-playbook install.yml \
-  -e umami_domain=analytics.example.com \
-  -e admin_email=admin@example.com \
-  -e caddy_mode=system
-```
-This will install Caddy and configure it to work with your existing services.
-
-**Solution 2: Free up the ports**
+**Solution: Free up the ports or install Caddy manually**
 ```bash
 # Find what's using the ports
 sudo ss -tulpn | grep ':80\|:443'
@@ -249,22 +239,13 @@ cd /opt/umami && docker compose logs umami
 cd /opt/umami && docker compose logs db
 ```
 
-### View Caddy logs (Docker mode)
-```bash
-cd /opt/umami && docker compose logs caddy
-```
-
-### View Caddy logs (System mode)
+### View Caddy logs
 ```bash
 journalctl -u caddy -f
 ```
 
 ### Check SSL certificate
 ```bash
-# Docker mode
-cd /opt/umami && docker compose logs caddy | grep -i certificate
-
-# System mode
 journalctl -u caddy | grep -i certificate
 ```
 
@@ -272,11 +253,11 @@ journalctl -u caddy | grep -i certificate
 
 This playbook performs the following operations:
 - Installs Docker and Docker Compose if not present
-- Creates PostgreSQL database with persistent storage
-- **Installs or configures Caddy** as reverse proxy (Docker or System mode)
-- Opens ports 80 and 443 for web access (Docker mode or System mode)
+- Creates PostgreSQL 18 database with persistent storage
+- **Installs or configures Caddy** as system service (reverse proxy)
+- Opens ports 80 and 443 for web access
 - Stores analytics data in /opt/umami/data directory
-- May modify /etc/caddy/Caddyfile (System mode)
+- May modify /etc/caddy/Caddyfile (adds import directive if missing)
 
 ## Architecture
 

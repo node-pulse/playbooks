@@ -7,7 +7,7 @@ services:
     ports:
       - "127.0.0.1:{{ umami_port }}:3000"
     environment:
-      DATABASE_URL: postgresql://{{ postgres_user }}:{{ postgres_password }}@db:5432/{{ postgres_db }}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       APP_SECRET: ${APP_SECRET}
       DISABLE_TELEMETRY: "1"
     depends_on:
@@ -23,12 +23,12 @@ services:
       start_period: 90s
 
   db:
-    image: postgres:15-alpine
+    image: postgres:18-alpine
     container_name: umami-db
     environment:
-      POSTGRES_DB: {{ postgres_db }}
-      POSTGRES_USER: {{ postgres_user }}
-      POSTGRES_PASSWORD: {{ postgres_password }}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - {{ umami_data_dir }}/postgres:/var/lib/postgresql/data
     restart: always

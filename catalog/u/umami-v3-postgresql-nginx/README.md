@@ -17,7 +17,7 @@ Umami is a simple, fast, privacy-focused alternative to Google Analytics that:
 
 This playbook deploys:
 - **Umami v3** - Modern web analytics (Docker)
-- **PostgreSQL 15** - Database backend (Docker)
+- **PostgreSQL 18** - Database backend (Docker)
 - **Nginx** - Reverse proxy with automatic SSL (System installation)
 - **Certbot** - Automatic SSL certificate management (Let's Encrypt)
 
@@ -52,7 +52,6 @@ This playbook deploys:
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `nginx_mode` | select | `auto` | Nginx deployment mode: `auto` or `system` |
 | `umami_port` | integer | `3000` | Internal port for Umami application |
 | `postgres_user` | string | `umami` | PostgreSQL username |
 | `postgres_password` | password | auto-generated | PostgreSQL password |
@@ -118,7 +117,7 @@ ansible-playbook -i inventory install.yml \
 This will automatically:
 1. Detect if Nginx is installed
 2. Install Nginx if needed (from distribution repository)
-3. Deploy Umami and PostgreSQL in Docker
+3. Deploy Umami and PostgreSQL 18 in Docker
 4. Obtain SSL certificate via Certbot
 5. Configure HTTPS with security headers
 6. Set up automatic certificate renewal
@@ -188,7 +187,7 @@ certbot certificates
 ## Data Storage
 
 All data is stored in `/opt/umami/data/`:
-- `postgres/` - PostgreSQL database files
+- `postgres/` - PostgreSQL 18 database files
 
 Nginx configuration:
 - `/etc/nginx/sites-available/umami` (Debian/Ubuntu)
@@ -295,7 +294,7 @@ sudo systemctl reload nginx
 
 This playbook performs the following operations:
 - Installs Docker and Docker Compose if not present
-- Creates PostgreSQL database with persistent storage
+- Creates PostgreSQL 18 database with persistent storage
 - **Installs Nginx** if not already present
 - **Installs Certbot** and obtains SSL certificate from Let's Encrypt
 - Opens ports 80 and 443 for web access

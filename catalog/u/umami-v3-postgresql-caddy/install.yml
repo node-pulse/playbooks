@@ -166,7 +166,6 @@
       register: system_caddy_check
       ignore_errors: yes
       changed_when: false
-      when: final_caddy_mode == 'system'
 
     - name: Install Caddy from official repository (Debian/Ubuntu)
       block:
@@ -196,7 +195,6 @@
             state: present
             update_cache: yes
       when:
-        - final_caddy_mode == 'system'
         - system_caddy_check.rc != 0
         - ansible_os_family == "Debian"
 
@@ -216,7 +214,6 @@
             name: caddy
             state: present
       when:
-        - final_caddy_mode == 'system'
         - system_caddy_check.rc != 0
         - ansible_os_family == "RedHat"
 
@@ -225,28 +222,24 @@
         name: caddy
         state: started
         enabled: yes
-      when: final_caddy_mode == 'system'
 
     - name: Ensure /etc/caddy/conf.d directory exists
       file:
         path: /etc/caddy/conf.d
         state: directory
         mode: '0755'
-      when: final_caddy_mode == 'system'
 
     - name: Create Umami configuration for system Caddy
       template:
         src: templates/umami-system.conf.j2
         dest: /etc/caddy/conf.d/umami.conf
         mode: '0644'
-      when: final_caddy_mode == 'system'
       notify: reload_caddy
 
     - name: Check if import directive exists in main Caddyfile
       shell: grep -q "import /etc/caddy/conf.d/\*.conf" /etc/caddy/Caddyfile || echo "missing"
       register: import_check
       changed_when: false
-      when: final_caddy_mode == 'system'
 
     - name: Add import directive to main Caddyfile if missing
       lineinfile:
@@ -254,9 +247,7 @@
         line: "import /etc/caddy/conf.d/*.conf"
         insertafter: EOF
         create: no
-      when:
-        - final_caddy_mode == 'system'
-        - import_check.stdout == 'missing'
+      when: import_check.stdout == 'missing'
       notify: reload_caddy
 
     - name: Pull Umami Docker images
