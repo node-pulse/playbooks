@@ -309,7 +309,7 @@
           - "Data directory: {{ umami_data_dir }}"
           - "Database: PostgreSQL ({{ postgres_db }})"
           - "Reverse Proxy: Nginx"
-          - "SSL Certificate: {{ 'Enabled (Let\'s Encrypt)' if enable_ssl else 'Disabled' }}"
+          - "SSL Certificate: {{ 'Enabled (Let''s Encrypt)' if enable_ssl else 'Disabled' }}"
           - ""
           - "To manage the service:"
           - "  Start:   cd {{ umami_install_dir }} && docker compose start"
