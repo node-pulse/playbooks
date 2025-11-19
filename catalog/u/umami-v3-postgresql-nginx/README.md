@@ -139,10 +139,13 @@ After installation, access Umami at `https://your-domain.com` with:
 - **Username**: `admin`
 - **Password**: `umami`
 
-⚠️ **IMPORTANT**:
-1. Change the default **password** immediately after first login!
-2. Change the default **username** from `admin` to something unique (Settings → Profile)
-3. Use a **strong, unique password**
+⚠️ **IMPORTANT - Change Default Credentials**:
+1. Log in with default credentials
+2. Go to **Settings → Team** (or **Settings → Accounts**)
+3. Click **Edit** on the admin user
+4. Change **username** from `admin` to something unique
+5. Change **password** from `umami` to a strong, unique password
+6. Click **Save**
 
 **Note**: Umami does not currently support native 2FA. For additional security, consider:
 - Using a password manager with a long, random password
