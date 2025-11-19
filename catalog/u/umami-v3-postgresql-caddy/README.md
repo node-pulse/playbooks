@@ -142,7 +142,26 @@ After installation, access Umami at `https://your-domain.com` with:
 - **Username**: `admin`
 - **Password**: `umami`
 
-⚠️ **IMPORTANT**: Change the default password immediately after first login!
+⚠️ **IMPORTANT**:
+1. Change the default **password** immediately after first login!
+2. Change the default **username** from `admin` to something unique (Settings → Profile)
+3. Use a **strong, unique password**
+
+**Note**: Umami does not currently support native 2FA. For additional security, consider:
+- Using a password manager with a long, random password
+- Restricting admin access by IP address via Caddy
+- Deploying Authelia/Authentik for external 2FA protection (advanced)
+
+**How Authelia 2FA Works:**
+```
+User → Caddy → Authelia (checks if logged in) → Umami
+                   ↓
+             Not logged in?
+                   ↓
+          Show login page with 2FA
+```
+
+**TODO**: Add Authelia integration playbook for 2FA support
 
 ### Adding Websites
 
