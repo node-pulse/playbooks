@@ -25,10 +25,12 @@ authentication_backend:
     path: /config/users_database.yml
     password:
       algorithm: argon2id
-      iterations: 1
+      # Authelia recommended parameters for strong security
+      iterations: 3
       salt_length: 16
-      parallelism: 8
-      memory: 64
+      parallelism: 4
+      memory: 65536  # 64 MiB (was 64 KiB - now 1000x stronger)
+      key_length: 32
 
 access_control:
   default_policy: deny

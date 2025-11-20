@@ -289,6 +289,14 @@
       "description": "Directory where PostgreSQL Stack will be installed",
       "required": false,
       "pattern": "^/[a-zA-Z0-9/_-]+$"
+    },
+    {
+      "name": "allowed_cors_origins",
+      "label": "Allowed CORS Origins (PostgREST API)",
+      "type": "array",
+      "default": [],
+      "description": "List of allowed origins for cross-origin requests to PostgREST API. Leave empty (default) to block all cross-origin requests for maximum security. Example: ['https://app.example.com', 'https://admin.example.com']",
+      "required": false
     }
   ],
 

@@ -15,6 +15,9 @@
     postgrest_role: "{{ postgrest_role | default('authenticator') }}"
     postgrest_anon_role: "{{ postgrest_anon_role | default('anon') }}"
     enable_ssl: "{{ enable_ssl | default(true) }}"
+    # CORS origins for PostgREST API (empty = no cross-origin access, most secure)
+    # Example: allowed_cors_origins: ['https://example.com', 'https://app.example.com']
+    allowed_cors_origins: "{{ allowed_cors_origins | default([]) }}"
 
   tasks:
     - name: Validate required variables
@@ -185,7 +188,7 @@
         enabled: yes
 
     - name: Hash Authelia admin password
-      shell: docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password "{{ authelia_admin_password }}" | grep 'Digest:' | awk '{print $2}'
+      shell: docker run --rm authelia/authelia:4.38.16 authelia crypto hash generate argon2 --password "{{ authelia_admin_password }}" | grep 'Digest:' | awk '{print $2}'
       register: authelia_password_hash_result
       changed_when: false
 

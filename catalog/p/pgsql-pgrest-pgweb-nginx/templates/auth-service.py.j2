@@ -6,10 +6,11 @@ Generates JWT tokens for authenticated users
 
 import os
 import jwt
-import hashlib
+import bcrypt
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify
 from functools import wraps
+import time
 
 app = Flask(__name__)
 
@@ -17,29 +18,78 @@ app = Flask(__name__)
 JWT_SECRET = os.getenv('POSTGREST_JWT_SECRET', '')
 TOKEN_EXPIRY_HOURS = int(os.getenv('TOKEN_EXPIRY_HOURS', '24'))
 
-# User database (in production, this should be in PostgreSQL)
-# Format: username -> (password_hash, role)
-USERS = {
-    'api_user': {
-        'password_hash': hashlib.sha256({{ api_user_password | tojson }}.encode()).hexdigest(),
-        'role': 'api_user'
-    },
-    'admin': {
-        'password_hash': hashlib.sha256({{ api_admin_password | tojson }}.encode()).hexdigest(),
-        'role': 'admin'
-    }
-}
+# User credentials from environment (loaded at runtime)
+API_USER_PASSWORD = os.getenv('API_USER_PASSWORD', '')
+API_ADMIN_PASSWORD = os.getenv('API_ADMIN_PASSWORD', '')
+
+# Hash passwords at startup (bcrypt with salt)
+# In production, these should be pre-hashed and stored in PostgreSQL
+USERS = {}
+
+def init_users():
+    """Initialize user database with bcrypt hashed passwords"""
+    global USERS
+    if API_USER_PASSWORD:
+        USERS['api_user'] = {
+            'password_hash': bcrypt.hashpw(API_USER_PASSWORD.encode(), bcrypt.gensalt()),
+            'role': 'api_user'
+        }
+    if API_ADMIN_PASSWORD:
+        USERS['admin'] = {
+            'password_hash': bcrypt.hashpw(API_ADMIN_PASSWORD.encode(), bcrypt.gensalt()),
+            'role': 'admin'
+        }
+
+# Rate limiting: track failed login attempts
+failed_attempts = {}
+MAX_ATTEMPTS = 5
+LOCKOUT_DURATION = 300  # 5 minutes
+
+def is_locked_out(username):
+    """Check if user is locked out due to failed attempts"""
+    if username not in failed_attempts:
+        return False
+
+    attempts, last_attempt = failed_attempts[username]
+    if attempts >= MAX_ATTEMPTS:
+        if time.time() - last_attempt < LOCKOUT_DURATION:
+            return True
+        else:
+            # Reset after lockout period
+            del failed_attempts[username]
+            return False
+    return False
+
+def record_failed_attempt(username):
+    """Record a failed login attempt"""
+    if username not in failed_attempts:
+        failed_attempts[username] = [1, time.time()]
+    else:
+        attempts, _ = failed_attempts[username]
+        failed_attempts[username] = [attempts + 1, time.time()]
+
+def reset_failed_attempts(username):
+    """Reset failed attempts after successful login"""
+    if username in failed_attempts:
+        del failed_attempts[username]
 
 def validate_credentials(username, password):
-    """Validate username and password"""
+    """Validate username and password with rate limiting"""
+    if is_locked_out(username):
+        return None
+
     if username not in USERS:
+        record_failed_attempt(username)
         return None
 
     user = USERS[username]
-    password_hash = hashlib.sha256(password.encode()).hexdigest()
 
-    if password_hash == user['password_hash']:
+    # Use bcrypt to verify password (constant-time comparison)
+    if bcrypt.checkpw(password.encode(), user['password_hash']):
+        reset_failed_attempts(username)
         return user['role']
+
+    record_failed_attempt(username)
     return None
 
 @app.route('/health', methods=['GET'])
@@ -172,5 +222,14 @@ if __name__ == '__main__':
     if not JWT_SECRET:
         print('ERROR: POSTGREST_JWT_SECRET environment variable must be set')
         exit(1)
+
+    if not API_USER_PASSWORD or not API_ADMIN_PASSWORD:
+        print('ERROR: API_USER_PASSWORD and API_ADMIN_PASSWORD environment variables must be set')
+        exit(1)
+
+    # Initialize users with bcrypt hashed passwords
+    init_users()
+    print('Auth service initialized with bcrypt password hashing')
+    print(f'Rate limiting: {MAX_ATTEMPTS} attempts per {LOCKOUT_DURATION}s')
 
     app.run(host='0.0.0.0', port=5000, debug=False)

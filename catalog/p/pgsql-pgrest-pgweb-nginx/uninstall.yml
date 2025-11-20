@@ -54,10 +54,10 @@
 
     - name: Remove PostgreSQL Stack Docker images
       shell: |
-        docker rmi postgres:18-alpine || true
-        docker rmi postgrest/postgrest:latest || true
-        docker rmi sosedoff/pgweb:latest || true
-        docker rmi authelia/authelia:latest || true
+        docker rmi postgres:18.1-alpine || true
+        docker rmi postgrest/postgrest:v12.2.3 || true
+        docker rmi sosedoff/pgweb:0.16.2 || true
+        docker rmi authelia/authelia:4.38.16 || true
       ignore_errors: yes
 
     - name: Remove installation directory

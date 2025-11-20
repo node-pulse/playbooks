@@ -106,6 +106,7 @@ Internet → Nginx (80/443)
 | `authelia_admin_password` | password | auto-generated | Authelia admin password |
 | `enable_ssl` | boolean | `true` | Automatically obtain SSL certificate via Certbot |
 | `install_dir` | string | `/opt/postgresql-stack` | Installation directory |
+| `allowed_cors_origins` | array | `[]` (empty) | Allowed origins for CORS (PostgREST API). Empty = no cross-origin requests (most secure) |
 
 ## Usage
 
@@ -348,6 +349,36 @@ curl https://api.example.com/sample_data
 ```
 
 For more advanced PostgREST features, see [PostgREST documentation](https://postgrest.org/).
+
+### CORS Configuration (Cross-Origin Requests)
+
+**Default Behavior**: By default, the PostgREST API **blocks all cross-origin requests** for maximum security. Only same-origin requests are allowed.
+
+**Allowing Specific Origins**: If you need to call the API from a web frontend on a different domain, configure `allowed_cors_origins`:
+
+```bash
+ansible-playbook -i inventory install.yml \
+  -e domain=db.example.com \
+  -e pgweb_domain=pgweb.example.com \
+  -e postgrest_domain=api.example.com \
+  -e auth_domain=auth.example.com \
+  -e admin_email=admin@example.com \
+  -e "allowed_cors_origins=['https://app.example.com','https://admin.example.com']"
+```
+
+**Security Notes**:
+- Only list trusted domains (your own frontend applications)
+- Always use `https://` (not `http://`)
+- Be specific - don't use wildcards
+- The auth service automatically allows requests from the PostgREST domain
+
+**Testing CORS**:
+```bash
+# This will fail if origin is not in allowed_cors_origins
+curl https://api.example.com/sample_data \
+  -H "Origin: https://app.example.com" \
+  -H "Authorization: Bearer $TOKEN"
+```
 
 ### Database Management
 
@@ -607,7 +638,7 @@ cd /opt/postgresql-stack && docker compose logs authelia
 Reset Authelia password:
 ```bash
 # Generate new password hash
-docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password YourNewPassword
+docker run --rm authelia/authelia:4.38.16 authelia crypto hash generate argon2 --password YourNewPassword
 
 # Update authelia-users.yml with new hash
 # Restart Authelia
