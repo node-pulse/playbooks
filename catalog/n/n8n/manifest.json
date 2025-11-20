@@ -3,7 +3,7 @@
 
   "id": "pb_N8n7Qm5Pw2",
   "name": "n8n Workflow Automation",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Deploy n8n workflow automation platform with PostgreSQL and Caddy reverse proxy",
 
   "author": {
