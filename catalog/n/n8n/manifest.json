@@ -4,7 +4,7 @@
   "id": "pb_N8n7Qm5Pw2",
   "name": "n8n Workflow Automation",
   "version": "1.0.0",
-  "description": "Deploy n8n workflow automation platform with PostgreSQL, Redis, and Caddy reverse proxy",
+  "description": "Deploy n8n workflow automation platform with PostgreSQL and Caddy reverse proxy",
 
   "author": {
     "name": "Yumin",
@@ -17,7 +17,7 @@
   "repository": "https://github.com/node-pulse/playbooks",
 
   "category": "automation",
-  "tags": ["automation", "workflow", "n8n", "docker", "postgresql", "redis", "caddy"],
+  "tags": ["automation", "workflow", "n8n", "docker", "postgresql", "caddy"],
 
   "entry_point": "install.yml",
 
@@ -27,7 +27,7 @@
       "uninstall": "uninstall.yml"
     },
     "templates": [
-      "templates/docker-compose.yml.j2",
+      "templates/compose.yml.j2",
       "templates/env.j2",
       "templates/Caddyfile.j2",
       "templates/postgres-init.sql.j2"
@@ -151,12 +151,13 @@
       "required": false
     },
     {
-      "name": "redis_enabled",
-      "label": "Enable Redis Queue Mode",
-      "type": "boolean",
-      "default": true,
-      "description": "Enable Redis for queue mode (recommended for production)",
-      "required": false
+      "name": "n8n_instance_name",
+      "label": "Instance Name",
+      "type": "string",
+      "default": "n8n",
+      "description": "Unique instance name for running multiple n8n deployments on one server",
+      "required": false,
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
     },
     {
       "name": "n8n_webhook_url",
@@ -171,12 +172,12 @@
   "health_checks": [
     {
       "type": "command",
-      "command": "docker ps | grep -q n8n",
+      "command": "systemctl is-active n8n >/dev/null 2>&1 || systemctl is-active n8n-* >/dev/null 2>&1",
       "timeout": 10
     },
     {
       "type": "command",
-      "command": "curl -sf http://localhost:5678/healthz || curl -sf http://localhost:5678",
+      "command": "docker ps --filter 'name=n8n' --filter 'status=running' --format '{{.Names}}' | grep -q .",
       "timeout": 10
     }
   ],

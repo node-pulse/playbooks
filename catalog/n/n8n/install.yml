@@ -17,11 +17,12 @@
     enable_ssl: false
     ssl_email: ""
     n8n_data_dir: "/opt/n8n"
-    redis_enabled: false
     n8n_webhook_url: ""
+    n8n_instance_name: "n8n"
     # Internal variables
     n8n_version: "1.120.3"
     postgres_version: "16"
+    caddy_version: "2.8.4"
     postgres_user: "n8n"
     postgres_db: "n8n"
     n8n_jwt_secret: ""
@@ -159,20 +160,20 @@
       notify: Restart n8n stack
 
     - name: Deploy Caddy Dockerfile
-      copy:
+      template:
         dest: "{{ n8n_data_dir }}/caddy/Dockerfile"
         owner: root
         group: root
         mode: '0644'
         content: |
-          FROM caddy:latest
+          FROM caddy:{{ caddy_version }}
           COPY Caddyfile /etc/caddy/Caddyfile
       notify: Restart n8n stack
 
-    - name: Deploy docker-compose.yml
+    - name: Deploy compose.yml
       template:
-        src: templates/docker-compose.yml.j2
-        dest: "{{ n8n_data_dir }}/docker-compose.yml"
+        src: templates/compose.yml.j2
+        dest: "{{ n8n_data_dir }}/compose.yml"
         owner: root
         group: root
         mode: '0644'
@@ -188,13 +189,13 @@
 
     - name: Create systemd service for n8n
       copy:
-        dest: /etc/systemd/system/n8n.service
+        dest: /etc/systemd/system/{{ n8n_instance_name }}.service
         owner: root
         group: root
         mode: '0644'
         content: |
           [Unit]
-          Description=n8n Workflow Automation Platform
+          Description=n8n Workflow Automation Platform ({{ n8n_instance_name }})
           Requires=docker.service
           After=docker.service
 
@@ -217,7 +218,7 @@
 
     - name: Enable and start n8n service
       systemd:
-        name: n8n
+        name: "{{ n8n_instance_name }}"
         enabled: yes
         state: started
 
@@ -289,7 +290,7 @@
   handlers:
     - name: Restart n8n stack
       systemd:
-        name: n8n
+        name: "{{ n8n_instance_name }}"
         state: restarted
 
     - name: Reload systemd

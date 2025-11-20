@@ -1,7 +1,7 @@
 services:
   pg:
     image: postgres:{{ postgres_version }}
-    container_name: pg
+    container_name: {{ n8n_instance_name }}-pg
     restart: always
     environment:
       - POSTGRES_USER={{ postgres_user }}
@@ -9,8 +9,9 @@ services:
       - POSTGRES_DB={{ postgres_db }}
     volumes:
       - {{ n8n_data_dir }}/pg_data:/var/lib/postgresql/data
+      - {{ n8n_data_dir }}/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
-      - n8n-network
+      - {{ n8n_instance_name }}-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U {{ postgres_user }}"]
       interval: 10s
@@ -19,10 +20,15 @@ services:
 
   n8n:
     image: n8nio/n8n:{{ n8n_version }}
-    container_name: n8n
+    container_name: {{ n8n_instance_name }}
     restart: always
+{% if n8n_domain == "" %}
     ports:
       - "{{ n8n_port }}:5678"
+{% else %}
+    ports:
+      - "127.0.0.1:{{ n8n_port }}:5678"
+{% endif %}
     environment:
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=pg
@@ -68,14 +74,14 @@ services:
       pg:
         condition: service_healthy
     networks:
-      - n8n-network
+      - {{ n8n_instance_name }}-network
 
 {% if n8n_domain != "" %}
   caddy:
     build:
       context: {{ n8n_data_dir }}/caddy
       dockerfile: Dockerfile
-    container_name: caddy-server
+    container_name: {{ n8n_instance_name }}-caddy
     restart: unless-stopped
     ports:
       - "80:80"
@@ -88,11 +94,11 @@ services:
     depends_on:
       - n8n
     networks:
-      - n8n-network
+      - {{ n8n_instance_name }}-network
 {% endif %}
 
 networks:
-  n8n-network:
+  {{ n8n_instance_name }}-network:
     driver: bridge
 
 volumes:

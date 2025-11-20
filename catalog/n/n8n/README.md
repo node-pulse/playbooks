@@ -53,7 +53,7 @@ PostgreSQL (Port 5432) → Database backend
 | `enable_ssl` | Enable SSL/TLS with Let's Encrypt | `false` | Boolean |
 | `ssl_email` | Email for SSL certificate notifications | `""` | String |
 | `n8n_data_dir` | Directory for n8n data | `/opt/n8n` | String |
-| `redis_enabled` | Enable Redis queue mode | `false` | Boolean |
+| `n8n_instance_name` | Unique instance name for multiple deployments | `n8n` | String |
 | `n8n_webhook_url` | Webhook base URL | Auto-configured | String |
 
 ## Example Deployments
@@ -128,6 +128,8 @@ http://your-server-ip:5678
 **Check status:**
 ```bash
 sudo systemctl status n8n
+# Or for named instance:
+sudo systemctl status n8n-prod
 ```
 
 **View logs:**
@@ -139,6 +141,8 @@ sudo docker compose logs -f n8n
 **Restart service:**
 ```bash
 sudo systemctl restart n8n
+# Or for named instance:
+sudo systemctl restart n8n-prod
 ```
 
 **Stop service:**
@@ -195,19 +199,25 @@ n8n_webhook_url: "https://workflows.company.com/"
 
 ### Multiple Environments
 
-Deploy multiple n8n instances on the same server:
+Deploy multiple n8n instances on the same server by using unique instance names and data directories:
 
 ```yaml
 # Production instance
+n8n_instance_name: "n8n-prod"
 n8n_data_dir: "/opt/n8n-prod"
 n8n_domain: "n8n.example.com"
-n8n_port: 5678
+enable_ssl: true
+ssl_email: "admin@example.com"
 
-# Staging instance
+# Staging instance (separate playbook run)
+n8n_instance_name: "n8n-staging"
 n8n_data_dir: "/opt/n8n-staging"
 n8n_domain: "n8n-staging.example.com"
-n8n_port: 5679
+enable_ssl: true
+ssl_email: "admin@example.com"
 ```
+
+**Note**: Each instance needs a unique `n8n_instance_name` and `n8n_data_dir`. When using Caddy with SSL, only one instance can bind to ports 80/443. For multiple instances with domains, consider using system Nginx instead.
 
 ### Timezone Reference
 
@@ -235,7 +245,7 @@ All data is stored in the configured data directory (default: `/opt/n8n`):
 ├── caddy_config/      # Caddy configuration
 ├── .env               # Environment variables
 ├── credentials.txt    # Generated credentials
-└── docker-compose.yml # Docker configuration
+└── compose.yml        # Docker configuration
 ```
 
 ### Backup Strategy
@@ -367,8 +377,11 @@ sudo rm -rf /opt/n8n/*
 ### Remove n8n (Keep Data)
 
 ```yaml
-# Run uninstall playbook
+# Run uninstall playbook (default instance)
 ansible-playbook uninstall.yml
+
+# For named instance
+ansible-playbook uninstall.yml -e "n8n_instance_name=n8n-prod n8n_data_dir=/opt/n8n-prod"
 ```
 
 ### Remove Everything (Including Data)
@@ -376,6 +389,9 @@ ansible-playbook uninstall.yml
 ```yaml
 # Run with remove_data flag
 ansible-playbook uninstall.yml -e "remove_data=true"
+
+# For named instance
+ansible-playbook uninstall.yml -e "n8n_instance_name=n8n-prod n8n_data_dir=/opt/n8n-prod remove_data=true"
 ```
 
 ### Remove n8n and Docker
@@ -384,6 +400,8 @@ ansible-playbook uninstall.yml -e "remove_data=true"
 # Remove everything including Docker
 ansible-playbook uninstall.yml -e "remove_data=true remove_docker=true"
 ```
+
+**Important**: When uninstalling a custom instance, you must specify both `n8n_instance_name` and `n8n_data_dir` to match your installation.
 
 ## Performance Optimization
 
@@ -457,8 +475,8 @@ n8n can integrate with:
 
 ### Update n8n Version
 
-1. Edit `/opt/n8n/docker-compose.yml`
-2. Change n8n version: `n8nio/n8n:1.120.3` → `n8nio/n8n:latest`
+1. Edit `/opt/n8n/compose.yml`
+2. Change n8n version: `n8nio/n8n:1.120.3` → `n8nio/n8n:1.121.0` (use specific version, not latest)
 3. Restart: `sudo systemctl restart n8n`
 
 ### Update PostgreSQL
