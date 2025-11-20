@@ -1,0 +1,18 @@
+# PostgREST Configuration File
+# This file is for reference - PostgREST is configured via environment variables in docker-compose
+
+# Database connection
+db-uri = "postgres://{{ postgrest_role }}:{{ postgrest_password }}@db:5432/{{ postgres_db }}"
+
+# The name of which database schema to expose to REST clients
+db-schemas = "{{ postgrest_schemas | default('public') }}"
+
+# The database role to use when no client authentication is provided
+db-anon-role = "{{ postgrest_anon_role }}"
+
+# Secret used to encrypt and decrypt JWT tokens
+jwt-secret = "{{ postgrest_jwt_secret }}"
+
+# Listen on all interfaces
+server-host = "0.0.0.0"
+server-port = 3000

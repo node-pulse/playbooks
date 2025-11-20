@@ -1,0 +1,176 @@
+#!/usr/bin/env python3
+"""
+Simple JWT Authentication Service for PostgREST
+Generates JWT tokens for authenticated users
+"""
+
+import os
+import jwt
+import hashlib
+from datetime import datetime, timedelta
+from flask import Flask, request, jsonify
+from functools import wraps
+
+app = Flask(__name__)
+
+# Configuration from environment variables
+JWT_SECRET = os.getenv('POSTGREST_JWT_SECRET', '')
+TOKEN_EXPIRY_HOURS = int(os.getenv('TOKEN_EXPIRY_HOURS', '24'))
+
+# User database (in production, this should be in PostgreSQL)
+# Format: username -> (password_hash, role)
+USERS = {
+    'api_user': {
+        'password_hash': hashlib.sha256({{ api_user_password | tojson }}.encode()).hexdigest(),
+        'role': 'api_user'
+    },
+    'admin': {
+        'password_hash': hashlib.sha256({{ api_admin_password | tojson }}.encode()).hexdigest(),
+        'role': 'admin'
+    }
+}
+
+def validate_credentials(username, password):
+    """Validate username and password"""
+    if username not in USERS:
+        return None
+
+    user = USERS[username]
+    password_hash = hashlib.sha256(password.encode()).hexdigest()
+
+    if password_hash == user['password_hash']:
+        return user['role']
+    return None
+
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint"""
+    return jsonify({'status': 'healthy'}), 200
+
+@app.route('/login', methods=['POST'])
+def login():
+    """
+    Authenticate user and return JWT token
+
+    Request body:
+    {
+        "username": "api_user",
+        "password": "your_password"
+    }
+
+    Response:
+    {
+        "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+        "expires_in": 86400,
+        "role": "api_user"
+    }
+    """
+    if not request.json:
+        return jsonify({'error': 'Request must be JSON'}), 400
+
+    username = request.json.get('username')
+    password = request.json.get('password')
+
+    if not username or not password:
+        return jsonify({'error': 'Username and password required'}), 400
+
+    # Validate credentials
+    role = validate_credentials(username, password)
+    if not role:
+        return jsonify({'error': 'Invalid credentials'}), 401
+
+    # Generate JWT token
+    expiry = datetime.utcnow() + timedelta(hours=TOKEN_EXPIRY_HOURS)
+    payload = {
+        'role': role,
+        'username': username,
+        'exp': expiry,
+        'iat': datetime.utcnow()
+    }
+
+    token = jwt.encode(payload, JWT_SECRET, algorithm='HS256')
+
+    return jsonify({
+        'token': token,
+        'expires_in': TOKEN_EXPIRY_HOURS * 3600,
+        'expires_at': expiry.isoformat(),
+        'role': role
+    }), 200
+
+@app.route('/verify', methods=['GET'])
+def verify():
+    """
+    Verify JWT token
+
+    Headers:
+        Authorization: Bearer <token>
+
+    Response:
+    {
+        "valid": true,
+        "role": "api_user",
+        "username": "api_user",
+        "expires_at": "2025-11-20T12:00:00"
+    }
+    """
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'Missing or invalid Authorization header'}), 401
+
+    token = auth_header.split(' ')[1]
+
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        return jsonify({
+            'valid': True,
+            'role': payload.get('role'),
+            'username': payload.get('username'),
+            'expires_at': datetime.fromtimestamp(payload.get('exp')).isoformat()
+        }), 200
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token has expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
+
+@app.route('/docs', methods=['GET'])
+def docs():
+    """API documentation"""
+    return jsonify({
+        'endpoints': {
+            '/health': {
+                'method': 'GET',
+                'description': 'Health check endpoint'
+            },
+            '/login': {
+                'method': 'POST',
+                'description': 'Authenticate and get JWT token',
+                'request': {
+                    'username': 'string',
+                    'password': 'string'
+                },
+                'response': {
+                    'token': 'JWT token string',
+                    'expires_in': 'seconds until expiry',
+                    'role': 'user role'
+                }
+            },
+            '/verify': {
+                'method': 'GET',
+                'description': 'Verify JWT token',
+                'headers': {
+                    'Authorization': 'Bearer <token>'
+                }
+            }
+        },
+        'usage': {
+            'login': 'curl -X POST https://auth.example.com/login -H "Content-Type: application/json" -d \'{"username":"api_user","password":"your_password"}\'',
+            'api_call': 'curl https://api.example.com/table -H "Authorization: Bearer <token>"'
+        }
+    }), 200
+
+if __name__ == '__main__':
+    if not JWT_SECRET:
+        print('ERROR: POSTGREST_JWT_SECRET environment variable must be set')
+        exit(1)
+
+    app.run(host='0.0.0.0', port=5000, debug=False)

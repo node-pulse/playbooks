@@ -1,0 +1,98 @@
+version: '3'
+
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: postgresql-stack-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - {{ data_dir }}/postgres:/var/lib/postgresql/data
+    ports:
+      - "{{ postgres_port }}:5432"
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgrest:
+    image: postgrest/postgrest:latest
+    container_name: postgresql-stack-postgrest
+    ports:
+      - "{{ postgrest_port }}:3000"
+    environment:
+      PGRST_DB_URI: postgres://${POSTGREST_ROLE}:${POSTGREST_PASSWORD}@db:5432/${POSTGRES_DB}
+      PGRST_DB_SCHEMAS: ${POSTGREST_SCHEMAS:-public}
+      PGRST_DB_ANON_ROLE: ${POSTGREST_ANON_ROLE}
+      PGRST_JWT_SECRET: ${POSTGREST_JWT_SECRET}
+      PGRST_SERVER_HOST: 0.0.0.0
+      PGRST_SERVER_PORT: 3000
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  pgweb:
+    image: sosedoff/pgweb:latest
+    container_name: postgresql-stack-pgweb
+    ports:
+      - "{{ pgweb_port }}:8081"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8081/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  auth:
+    build:
+      context: {{ install_dir }}
+      dockerfile: Dockerfile.auth
+    container_name: postgresql-stack-auth
+    ports:
+      - "{{ auth_port }}:5000"
+    environment:
+      POSTGREST_JWT_SECRET: ${POSTGREST_JWT_SECRET}
+      TOKEN_EXPIRY_HOURS: ${TOKEN_EXPIRY_HOURS:-24}
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  authelia:
+    image: authelia/authelia:latest
+    container_name: postgresql-stack-authelia
+    ports:
+      - "{{ authelia_port }}:9091"
+    volumes:
+      - {{ install_dir }}/authelia-config.yml:/config/configuration.yml:ro
+      - {{ install_dir }}/authelia-users.yml:/config/users_database.yml:ro
+      - {{ data_dir }}/authelia:/data
+    environment:
+      TZ: UTC
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9091/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s

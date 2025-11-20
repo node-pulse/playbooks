@@ -1,0 +1,166 @@
+---
+- name: Uninstall PostgreSQL Stack (PostgreSQL 18 + PostgREST + pgweb + Authelia)
+  hosts: all
+  become: yes
+  vars:
+    install_dir: "{{ install_dir | default('/opt/postgresql-stack') }}"
+    data_dir: "{{ install_dir }}/data"
+    pgweb_domain: "{{ pgweb_domain | default('') }}"
+    postgrest_domain: "{{ postgrest_domain | default('') }}"
+
+  tasks:
+    - name: Check if installation directory exists
+      stat:
+        path: "{{ install_dir }}"
+      register: install_dir_stat
+
+    - name: Warn if installation not found
+      debug:
+        msg:
+          - "WARNING: Installation directory not found at {{ install_dir }}"
+          - "PostgreSQL Stack may not be installed or was installed in a different location."
+      when: not install_dir_stat.stat.exists
+
+    - name: Confirm data deletion
+      pause:
+        prompt: |
+
+          ⚠️  WARNING: This will permanently delete all PostgreSQL data! ⚠️
+
+          This includes:
+          - All databases and tables
+          - All Authelia user data and 2FA configurations
+          - All configuration files
+
+          Location: {{ install_dir }}
+
+          Are you sure you want to continue? Type 'yes' to confirm
+      register: confirm_delete
+      when: install_dir_stat.stat.exists
+
+    - name: Abort if not confirmed
+      fail:
+        msg: "Uninstallation aborted by user"
+      when:
+        - install_dir_stat.stat.exists
+        - confirm_delete.user_input | default('') != 'yes'
+
+    - name: Stop and remove Docker containers
+      command: docker compose down -v
+      args:
+        chdir: "{{ install_dir }}"
+      ignore_errors: yes
+      when: install_dir_stat.stat.exists
+
+    - name: Remove PostgreSQL Stack Docker images
+      shell: |
+        docker rmi postgres:18-alpine || true
+        docker rmi postgrest/postgrest:latest || true
+        docker rmi sosedoff/pgweb:latest || true
+        docker rmi authelia/authelia:latest || true
+      ignore_errors: yes
+
+    - name: Remove installation directory
+      file:
+        path: "{{ install_dir }}"
+        state: absent
+      when: install_dir_stat.stat.exists
+
+    - name: Remove Nginx pgweb configuration (Debian/Ubuntu)
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/nginx/sites-enabled/postgresql-stack-pgweb
+        - /etc/nginx/sites-available/postgresql-stack-pgweb
+      when: ansible_os_family == "Debian"
+      ignore_errors: yes
+
+    - name: Remove Nginx postgrest configuration (Debian/Ubuntu)
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/nginx/sites-enabled/postgresql-stack-postgrest
+        - /etc/nginx/sites-available/postgresql-stack-postgrest
+      when: ansible_os_family == "Debian"
+      ignore_errors: yes
+
+    - name: Remove Nginx auth configuration (Debian/Ubuntu)
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/nginx/sites-enabled/postgresql-stack-auth
+        - /etc/nginx/sites-available/postgresql-stack-auth
+      when: ansible_os_family == "Debian"
+      ignore_errors: yes
+
+    - name: Remove Nginx configuration (RHEL/CentOS/Rocky/Alma)
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/nginx/conf.d/postgresql-stack-pgweb.conf
+        - /etc/nginx/conf.d/postgresql-stack-postgrest.conf
+        - /etc/nginx/conf.d/postgresql-stack-auth.conf
+      when: ansible_os_family == "RedHat"
+      ignore_errors: yes
+
+    - name: Test Nginx configuration
+      command: nginx -t
+      register: nginx_test
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Reload Nginx if configuration is valid
+      systemd:
+        name: nginx
+        state: reloaded
+      when: nginx_test.rc == 0
+      ignore_errors: yes
+
+    - name: Remove SSL certificates for pgweb
+      command: certbot delete --cert-name {{ pgweb_domain }} --non-interactive
+      when:
+        - pgweb_domain is defined
+        - pgweb_domain | length > 0
+      ignore_errors: yes
+
+    - name: Remove SSL certificates for postgrest
+      command: certbot delete --cert-name {{ postgrest_domain }} --non-interactive
+      when:
+        - postgrest_domain is defined
+        - postgrest_domain | length > 0
+      ignore_errors: yes
+
+    - name: Remove SSL certificates for auth
+      command: certbot delete --cert-name {{ auth_domain }} --non-interactive
+      when:
+        - auth_domain is defined
+        - auth_domain | length > 0
+      ignore_errors: yes
+
+    - name: Display uninstallation summary
+      debug:
+        msg:
+          - "PostgreSQL Stack uninstallation complete!"
+          - "============================================"
+          - "Removed:"
+          - "  - Docker containers and volumes"
+          - "  - Installation directory: {{ install_dir }}"
+          - "  - Nginx configurations"
+          - "  - SSL certificates (if domains were provided)"
+          - ""
+          - "NOT removed (manual cleanup required if desired):"
+          - "  - Docker"
+          - "  - Nginx"
+          - "  - Certbot"
+          - ""
+          - "To completely remove all components:"
+          - "  Docker: apt remove docker-ce docker-ce-cli containerd.io (Debian/Ubuntu)"
+          - "          yum remove docker-ce docker-ce-cli containerd.io (RHEL/CentOS)"
+          - "  Nginx:  apt remove nginx (Debian/Ubuntu)"
+          - "          yum remove nginx (RHEL/CentOS)"
+          - "  Certbot: apt remove certbot python3-certbot-nginx (Debian/Ubuntu)"
+          - "           yum remove certbot python3-certbot-nginx (RHEL/CentOS)"

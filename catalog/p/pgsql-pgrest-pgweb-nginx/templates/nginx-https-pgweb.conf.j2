@@ -1,0 +1,90 @@
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ pgweb_domain }};
+
+    # Redirect HTTP to HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ pgweb_domain }};
+
+    # SSL Configuration (managed by Certbot)
+    ssl_certificate /etc/letsencrypt/live/{{ pgweb_domain }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ pgweb_domain }}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Logging
+    access_log /var/log/nginx/pgweb-access.log;
+    error_log /var/log/nginx/pgweb-error.log;
+
+    # Authelia authentication endpoint
+    location /authelia {
+        internal;
+        proxy_pass http://localhost:{{ authelia_port }}/api/verify;
+        proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
+        proxy_set_header X-Forwarded-Method $request_method;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $http_host;
+        proxy_set_header X-Forwarded-Uri $request_uri;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header Content-Length "";
+        proxy_pass_request_body off;
+    }
+
+    # Root location - protected by Authelia
+    location / {
+        # Authelia authentication
+        auth_request /authelia;
+        auth_request_set $user $upstream_http_remote_user;
+        auth_request_set $groups $upstream_http_remote_groups;
+        auth_request_set $name $upstream_http_remote_name;
+        auth_request_set $email $upstream_http_remote_email;
+
+        # Redirect to Authelia login if not authenticated
+        error_page 401 = @authelia_redirect;
+
+        # Proxy to pgweb
+        proxy_pass http://localhost:{{ pgweb_port }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Pass auth headers to backend
+        proxy_set_header Remote-User $user;
+        proxy_set_header Remote-Groups $groups;
+        proxy_set_header Remote-Name $name;
+        proxy_set_header Remote-Email $email;
+
+        # WebSocket support
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # Authelia redirect location
+    location @authelia_redirect {
+        return 302 https://{{ pgweb_domain }}/auth?rd=$scheme://$http_host$request_uri;
+    }
+
+    # Authelia portal
+    location /auth {
+        proxy_pass http://localhost:{{ authelia_port }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
+    }
+}
