@@ -172,12 +172,12 @@
   "health_checks": [
     {
       "type": "command",
-      "command": "systemctl is-active n8n >/dev/null 2>&1 || systemctl is-active n8n-* >/dev/null 2>&1",
+      "command": "docker ps --filter 'label=com.docker.compose.project' --filter 'status=running' --format '{{.Names}}' | grep -q .",
       "timeout": 10
     },
     {
       "type": "command",
-      "command": "docker ps --filter 'name=n8n' --filter 'status=running' --format '{{.Names}}' | grep -q .",
+      "command": "docker ps --filter 'ancestor=n8nio/n8n' --filter 'status=running' --format '{{.Names}}' | grep -q .",
       "timeout": 10
     }
   ],
