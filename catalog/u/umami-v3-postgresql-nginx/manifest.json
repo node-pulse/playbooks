@@ -3,7 +3,7 @@
 
   "id": "pb_89MKMAAanI",
   "name": "Umami v3 (PostgreSQL + Nginx)",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Opinionated deployment of Umami v3 with PostgreSQL database and Nginx reverse proxy with automatic SSL via Certbot",
 
   "author": {
