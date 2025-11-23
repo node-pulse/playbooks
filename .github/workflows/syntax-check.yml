@@ -35,7 +35,17 @@ jobs:
       - name: Find changed playbooks
         id: changes
         run: |
-          # Determine base and head refs
+          # On manual trigger, validate ALL playbooks
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual trigger detected - validating ALL playbooks"
+            all_dirs=$(find catalog -mindepth 2 -maxdepth 2 -type d | sort)
+            echo "dirs<<EOF" >> $GITHUB_OUTPUT
+            echo "$all_dirs" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Determine base and head refs for automatic triggers
           if [ "${{ github.event_name }}" = "push" ]; then
             BASE_REF="${{ github.event.before }}"
             HEAD_REF="${{ github.sha }}"
@@ -52,12 +62,18 @@ jobs:
           echo "$changed_dirs" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Check if any playbooks changed
+      - name: Check if any playbooks to validate
         if: steps.changes.outputs.dirs == ''
         run: |
-          echo "No playbook changes detected in this push."
-          echo "### No Changes" >> $GITHUB_STEP_SUMMARY
-          echo "No playbook changes detected." >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "No playbooks found in catalog."
+            echo "### No Playbooks" >> $GITHUB_STEP_SUMMARY
+            echo "No playbooks found in catalog directory." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No playbook changes detected in this push."
+            echo "### No Changes" >> $GITHUB_STEP_SUMMARY
+            echo "No playbook changes detected." >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Validate JSON syntax
         if: steps.changes.outputs.dirs != ''
@@ -108,7 +124,11 @@ jobs:
         run: |
           echo "### Validation Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Changed playbooks:" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Validated all playbooks:" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Changed playbooks:" >> $GITHUB_STEP_SUMMARY
+          fi
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "${{ steps.changes.outputs.dirs }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
