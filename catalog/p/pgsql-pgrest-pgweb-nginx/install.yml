@@ -172,7 +172,7 @@
             enabled: true
 
         - name: Install Docker packages
-          ansible.builtin.yum:
+          ansible.builtin.dnf:
             name:
               - docker-ce
               - docker-ce-cli
@@ -280,7 +280,7 @@
         - ansible_os_family == "Debian"
 
     - name: Install Nginx (RHEL/CentOS/Rocky/Alma)
-      ansible.builtin.yum:
+      ansible.builtin.dnf:
         name: nginx
         state: present
       when:
@@ -411,7 +411,7 @@
         - ansible_os_family == "Debian"
 
     - name: Install Certbot (RHEL/Rocky/Alma)
-      ansible.builtin.yum:
+      ansible.builtin.dnf:
         name:
           - certbot
           - python3-certbot-nginx

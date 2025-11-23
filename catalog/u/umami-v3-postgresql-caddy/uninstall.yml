@@ -66,7 +66,7 @@
           - ""
           - "Docker and Docker Compose remain installed for other applications."
           - "To remove Docker completely, run: apt remove docker-ce docker-ce-cli (Debian/Ubuntu)"
-          - "                            or: yum remove docker-ce docker-ce-cli (RHEL/CentOS/Rocky/Alma)"
+          - "                            or: dnf remove docker-ce docker-ce-cli (RHEL 8+/Rocky/Alma)"
       when: umami_exists.stat.exists
 
     - name: Display message if Umami not found

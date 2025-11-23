@@ -123,7 +123,7 @@
             enabled: true
 
         - name: Install Docker packages
-          ansible.builtin.yum:
+          ansible.builtin.dnf:
             name:
               - docker-ce
               - docker-ce-cli
@@ -211,7 +211,7 @@
             enabled: true
 
         - name: Install Caddy
-          ansible.builtin.yum:
+          ansible.builtin.dnf:
             name: caddy
             state: present
       when:

@@ -117,11 +117,11 @@
           - ""
           - "To completely remove all components:"
           - "  Docker: apt remove docker-ce docker-ce-cli containerd.io (Debian/Ubuntu)"
-          - "          yum remove docker-ce docker-ce-cli containerd.io (RHEL/CentOS)"
+          - "          dnf remove docker-ce docker-ce-cli containerd.io (RHEL 8+/Rocky/Alma)"
           - "  Nginx:  apt remove nginx (Debian/Ubuntu)"
-          - "          yum remove nginx (RHEL/CentOS)"
+          - "          dnf remove nginx (RHEL 8+/Rocky/Alma)"
           - "  Certbot: apt remove certbot python3-certbot-nginx (Debian/Ubuntu)"
-          - "           yum remove certbot python3-certbot-nginx (RHEL/CentOS)"
+          - "           dnf remove certbot python3-certbot-nginx (RHEL 8+/Rocky/Alma)"
       when: umami_exists.stat.exists
 
     - name: Display message if Umami not found
