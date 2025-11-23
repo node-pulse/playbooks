@@ -36,12 +36,16 @@ BEGIN
 END
 $$;
 
+-- Grant database connection privilege to authenticator
+GRANT CONNECT ON DATABASE {{ postgres_db }} TO {{ postgrest_role }};
+
 -- Grant roles to authenticator so PostgREST can switch between them
 GRANT {{ postgrest_anon_role }} TO {{ postgrest_role }};
 GRANT api_user TO {{ postgrest_role }};
 GRANT admin TO {{ postgrest_role }};
 
 -- Grant usage on schema to all roles
+GRANT USAGE ON SCHEMA public TO {{ postgrest_role }};
 GRANT USAGE ON SCHEMA public TO {{ postgrest_anon_role }};
 GRANT USAGE ON SCHEMA public TO api_user;
 GRANT USAGE ON SCHEMA public TO admin;
