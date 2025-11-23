@@ -3,7 +3,7 @@
 
   "id": "pb_89MKMAAanI",
   "name": "Umami v3 (PostgreSQL + Nginx)",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Opinionated deployment of Umami v3 with PostgreSQL database and Nginx reverse proxy with automatic SSL via Certbot",
 
   "author": {
@@ -47,9 +47,7 @@
       },
       "uninstall": {
         "file": "uninstall.yml",
-        "variables": [
-          "umami_install_dir"
-        ]
+        "variables": ["umami_install_dir"]
       }
     },
     "templates": [
