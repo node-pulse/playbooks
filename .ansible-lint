@@ -1,0 +1,27 @@
+# Ansible Lint Configuration
+# https://ansible.readthedocs.io/projects/lint/configuring/
+
+# Enforce critical rules, relax formatting rules
+skip_list:
+  # Skip line length - too strict for complex Jinja2 expressions
+  - yaml[line-length]
+  # Skip key ordering - not critical for functionality
+  - key-order[task]
+  # Skip Jinja spacing warnings - auto-fix suggestion often incorrect
+  - jinja[spacing]
+  # Skip risky-shell-pipe - many cases are intentional
+  - risky-shell-pipe
+  # Skip command-instead-of-shell - shell often needed
+  - command-instead-of-shell
+
+# Enforce these important rules
+warn_list:
+  - experimental  # Warn on experimental features
+  - no-changed-when  # Warn when commands don't specify changed_when
+  - ignore-errors  # Warn when using ignore_errors instead of failed_when
+
+# Enable offline mode (don't check for updates)
+offline: false
+
+# Use production profile as baseline
+profile: production

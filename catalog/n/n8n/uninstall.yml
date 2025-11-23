@@ -31,13 +31,13 @@
       ansible.builtin.systemd:
         name: "{{ n8n_instance_name }}"
         state: stopped
-      ignore_errors: true
+      failed_when: false
 
     - name: Disable n8n service
       ansible.builtin.systemd:
         name: "{{ n8n_instance_name }}"
         enabled: false
-      ignore_errors: true
+      failed_when: false
 
     - name: Stop and remove n8n containers
       ansible.builtin.shell: |
@@ -45,7 +45,8 @@
         docker compose down -v
       args:
         chdir: "{{ n8n_data_dir }}"
-      ignore_errors: true
+      failed_when: false
+      changed_when: true
       when: n8n_data_dir is exists
 
     - name: Remove n8n systemd service file
@@ -58,7 +59,7 @@
         daemon_reload: true
 
     - name: Remove n8n Docker images
-      docker_image:
+      community.docker.docker_image:
         name: "{{ item }}"
         state: absent
         force_absent: true
@@ -67,19 +68,22 @@
         - "n8nio/n8n:latest"
         - "postgres:16"
         - "postgres:latest"
-      ignore_errors: true
+      failed_when: false
 
     - name: Remove Caddy image
       ansible.builtin.shell: |
+        set -o pipefail
         docker images | grep "{{ n8n_data_dir | regex_replace('/', '_') }}" | awk '{print $3}' | xargs -r docker rmi -f
-      ignore_errors: true
+      failed_when: false
+      changed_when: true
 
     - name: Backup credentials before removal
       ansible.builtin.copy:
         src: "{{ n8n_data_dir }}/credentials.txt"
         dest: "/root/{{ n8n_instance_name }}-credentials-backup-{{ ansible_date_time.epoch }}.txt"
         remote_src: true
-      ignore_errors: true
+        mode: '0600'
+      failed_when: false
       when:
         - remove_data
         - n8n_data_dir + '/credentials.txt' is exists
@@ -106,7 +110,10 @@
 
     - name: Remove Docker repository
       ansible.builtin.apt_repository:
-        repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }}] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
+        repo: >-
+          deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }}]
+          https://download.docker.com/linux/{{ ansible_distribution | lower }}
+          {{ ansible_distribution_release }} stable
         state: absent
       when:
         - remove_docker

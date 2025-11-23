@@ -84,11 +84,12 @@
     - name: Check if system Nginx is installed
       ansible.builtin.command: which nginx
       register: nginx_binary
-      ignore_errors: true
+      failed_when: false
       changed_when: false
 
     - name: Check if ports 80 and 443 are in use
       ansible.builtin.shell: |
+        set -o pipefail
         port80=$(ss -tuln | grep ':80 ' || echo "free")
         port443=$(ss -tuln | grep ':443 ' || echo "free")
         if [[ "$port80" != "free" ]] || [[ "$port443" != "free" ]]; then
@@ -131,7 +132,7 @@
     - name: Check if Docker is installed
       ansible.builtin.command: docker --version
       register: docker_installed
-      ignore_errors: true
+      failed_when: false
       changed_when: false
 
     - name: Install Docker (Debian/Ubuntu)
@@ -162,7 +163,7 @@
     - name: Install Docker (RHEL/CentOS/Rocky/Alma)
       block:
         - name: Add Docker repository
-          yum_repository:
+          ansible.builtin.yum_repository:
             name: docker-ce
             description: Docker CE Stable
             baseurl: "https://download.docker.com/linux/{{ 'centos' if ansible_distribution == 'CentOS' else 'rhel' if ansible_distribution in ['RedHat', 'OracleLinux'] else ansible_distribution | lower }}/{{ ansible_distribution_major_version }}/$basearch/stable"
@@ -266,7 +267,7 @@
     - name: Check if system Nginx is already installed
       ansible.builtin.command: which nginx
       register: system_nginx_check
-      ignore_errors: true
+      failed_when: false
       changed_when: false
 
     - name: Install Nginx (Debian/Ubuntu)
@@ -324,7 +325,7 @@
         - 'postgresql-stack-postgrest'
         - 'postgresql-stack-auth'
       when: ansible_os_family == "Debian"
-      notify: reload_nginx
+      notify: Reload Nginx
 
     - name: Test Nginx configuration
       ansible.builtin.command: nginx -t
@@ -350,7 +351,8 @@
       changed_when: "'Started' in docker_up.stderr or 'Created' in docker_up.stderr"
 
     - name: Wait for PostgreSQL to be ready
-      ansible.builtin.shell: docker exec postgresql-stack-db pg_isready -U {{ postgres_user }}
+      ansible.builtin.shell: docker exec postgresql-stack-db pg_isready
+      changed_when: false -U {{ postgres_user }}
       register: result
       until: result.rc == 0
       retries: 30
@@ -460,7 +462,7 @@
         dest: "{{ '/etc/nginx/sites-available/postgresql-stack-pgweb' if ansible_os_family == 'Debian' else '/etc/nginx/conf.d/postgresql-stack-pgweb.conf' }}"
         mode: '0644'
       when: enable_ssl
-      notify: reload_nginx
+      notify: Reload Nginx
 
     - name: Apply optimized HTTPS configuration for PostgREST
       ansible.builtin.template:
@@ -468,7 +470,7 @@
         dest: "{{ '/etc/nginx/sites-available/postgresql-stack-postgrest' if ansible_os_family == 'Debian' else '/etc/nginx/conf.d/postgresql-stack-postgrest.conf' }}"
         mode: '0644'
       when: enable_ssl
-      notify: reload_nginx
+      notify: Reload Nginx
 
     - name: Apply optimized HTTPS configuration for Auth service
       ansible.builtin.template:
@@ -476,7 +478,7 @@
         dest: "{{ '/etc/nginx/sites-available/postgresql-stack-auth' if ansible_os_family == 'Debian' else '/etc/nginx/conf.d/postgresql-stack-auth.conf' }}"
         mode: '0644'
       when: enable_ssl
-      notify: reload_nginx
+      notify: Reload Nginx
 
     - name: Setup automatic certificate renewal
       ansible.builtin.cron:
@@ -533,7 +535,7 @@
           - "  Logs:    cd {{ install_dir }} && docker compose logs -f"
 
   handlers:
-    - name: reload_nginx
+    - name: Reload Nginx
       ansible.builtin.systemd:
         name: nginx
         state: reloaded

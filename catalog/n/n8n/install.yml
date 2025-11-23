@@ -71,7 +71,12 @@
 
     - name: Set webhook URL based on domain or IP
       ansible.builtin.set_fact:
-        n8n_webhook_url: "{{ 'https://' + n8n_domain + '/' if enable_ssl and n8n_domain != '' else 'http://' + n8n_domain + '/' if n8n_domain != '' else 'http://' + ansible_default_ipv4.address + ':' + n8n_port|string + '/' }}"
+        n8n_webhook_url: >-
+          {{ 'https://' + n8n_domain + '/'
+             if enable_ssl and n8n_domain != ''
+             else 'http://' + n8n_domain + '/'
+             if n8n_domain != ''
+             else 'http://' + ansible_default_ipv4.address + ':' + n8n_port | string + '/' }}
       when: n8n_webhook_url == ""
 
   tasks:
@@ -98,7 +103,10 @@
 
     - name: Add Docker repository
       ansible.builtin.apt_repository:
-        repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }}] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
+        repo: >-
+          deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }}]
+          https://download.docker.com/linux/{{ ansible_distribution | lower }}
+          {{ ansible_distribution_release }} stable
         state: present
 
     - name: Install Docker
@@ -130,7 +138,7 @@
         path: "{{ item }}"
         state: directory
         owner: root
-        ansible.builtin.group: root
+        group: root
         mode: '0755'
       loop:
         - "{{ n8n_data_dir }}"
@@ -146,7 +154,7 @@
         src: templates/env.j2
         dest: "{{ n8n_data_dir }}/.env"
         owner: root
-        ansible.builtin.group: root
+        group: root
         mode: '0600'
       notify: Restart n8n stack
 
@@ -155,7 +163,7 @@
         src: templates/Caddyfile.j2
         dest: "{{ n8n_data_dir }}/caddy/Caddyfile"
         owner: root
-        ansible.builtin.group: root
+        group: root
         mode: '0644'
       notify: Restart n8n stack
 
@@ -163,7 +171,7 @@
       ansible.builtin.template:
         dest: "{{ n8n_data_dir }}/caddy/Dockerfile"
         owner: root
-        ansible.builtin.group: root
+        group: root
         mode: '0644'
         content: |
           FROM caddy:{{ caddy_version }}
@@ -175,7 +183,7 @@
         src: templates/compose.yml.j2
         dest: "{{ n8n_data_dir }}/compose.yml"
         owner: root
-        ansible.builtin.group: root
+        group: root
         mode: '0644'
       notify: Restart n8n stack
 
@@ -184,14 +192,14 @@
         src: templates/postgres-init.sql.j2
         dest: "{{ n8n_data_dir }}/postgres-init.sql"
         owner: root
-        ansible.builtin.group: root
+        group: root
         mode: '0644'
 
     - name: Create systemd service for n8n
       ansible.builtin.copy:
         dest: /etc/systemd/system/{{ n8n_instance_name }}.service
         owner: root
-        ansible.builtin.group: root
+        group: root
         mode: '0644'
         content: |
           [Unit]
@@ -237,27 +245,33 @@
       ansible.builtin.debug:
         msg:
           - "n8n has been successfully deployed!"
-          - "==================== ACCESS INFORMATION ===================="
+          - "================= ACCESS INFORMATION ================="
           - "URL: {{ n8n_webhook_url }}"
           - "Port: {{ n8n_port }}"
           - "Data Directory: {{ n8n_data_dir }}"
-          - "==================== CREDENTIALS =========================="
+          - "================= CREDENTIALS ========================"
           - "PostgreSQL User: {{ postgres_user }}"
           - "PostgreSQL Password: {{ postgres_password }}"
           - "Encryption Key: {{ n8n_encryption_key }}"
           - "JWT Secret: {{ n8n_jwt_secret }}"
-          - "{% if n8n_basic_auth_user != '' %}Basic Auth User: {{ n8n_basic_auth_user }}{% endif %}"
-          - "{% if n8n_basic_auth_password != '' %}Basic Auth Password: {{ n8n_basic_auth_password }}{% endif %}"
-          - "==================== IMPORTANT =============================="
+          - >-
+            {% if n8n_basic_auth_user != '' %}
+            Basic Auth User: {{ n8n_basic_auth_user }}
+            {% endif %}
+          - >-
+            {% if n8n_basic_auth_password != '' %}
+            Basic Auth Password: {{ n8n_basic_auth_password }}
+            {% endif %}
+          - "================= IMPORTANT =========================="
           - "Save these credentials securely!"
           - "Environment file: {{ n8n_data_dir }}/.env"
-          - "============================================================="
+          - "======================================================"
 
     - name: Save credentials to file
       ansible.builtin.copy:
         dest: "{{ n8n_data_dir }}/credentials.txt"
         owner: root
-        ansible.builtin.group: root
+        group: root
         mode: '0600'
         content: |
           n8n Deployment Credentials

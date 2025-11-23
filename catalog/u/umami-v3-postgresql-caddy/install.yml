@@ -34,11 +34,12 @@
     - name: Check if system Caddy is installed
       ansible.builtin.command: which caddy
       register: caddy_binary
-      ignore_errors: true
+      failed_when: false
       changed_when: false
 
     - name: Check if ports 80 and 443 are in use
       ansible.builtin.shell: |
+        set -o pipefail
         port80=$(ss -tuln | grep ':80 ' || echo "free")
         port443=$(ss -tuln | grep ':443 ' || echo "free")
         if [[ "$port80" != "free" ]] || [[ "$port443" != "free" ]]; then
@@ -82,7 +83,7 @@
     - name: Check if Docker is installed
       ansible.builtin.command: docker --version
       register: docker_installed
-      ignore_errors: true
+      failed_when: false
       changed_when: false
 
     - name: Install Docker (Debian/Ubuntu)
@@ -113,7 +114,7 @@
     - name: Install Docker (RHEL/CentOS/Rocky/Alma)
       block:
         - name: Add Docker repository
-          yum_repository:
+          ansible.builtin.yum_repository:
             name: docker-ce
             description: Docker CE Stable
             baseurl: "https://download.docker.com/linux/{{ 'centos' if ansible_distribution == 'CentOS' else 'rhel' if ansible_distribution in ['RedHat', 'OracleLinux'] else ansible_distribution | lower }}/{{ ansible_distribution_major_version }}/$basearch/stable"
@@ -164,7 +165,7 @@
     - name: Check if system Caddy is already installed
       ansible.builtin.command: which caddy
       register: system_caddy_check
-      ignore_errors: true
+      failed_when: false
       changed_when: false
 
     - name: Install Caddy from official repository (Debian/Ubuntu)
@@ -201,7 +202,7 @@
     - name: Install Caddy from official repository (RHEL/CentOS/Rocky/Alma)
       block:
         - name: Add Caddy repository
-          yum_repository:
+          ansible.builtin.yum_repository:
             name: caddy
             description: Caddy Repository
             baseurl: https://dl.cloudsmith.io/public/caddy/stable/rpm/el/$releasever/$basearch
@@ -234,7 +235,7 @@
         src: templates/umami-system.conf.j2
         dest: /etc/caddy/conf.d/umami.conf
         mode: '0644'
-      notify: reload_caddy
+      notify: Reload Caddy
 
     - name: Check if import directive exists in main Caddyfile
       ansible.builtin.shell: grep -q "import /etc/caddy/conf.d/\*.conf" /etc/caddy/Caddyfile || echo "missing"
@@ -248,7 +249,7 @@
         insertafter: EOF
         create: false
       when: import_check.stdout == 'missing'
-      notify: reload_caddy
+      notify: Reload Caddy
 
     - name: Pull Umami Docker images
       ansible.builtin.command: docker compose pull
@@ -296,7 +297,7 @@
           - "  Logs:    cd {{ umami_install_dir }} && docker compose logs -f"
 
   handlers:
-    - name: reload_caddy
+    - name: Reload Caddy
       ansible.builtin.systemd:
         name: caddy
         state: reloaded

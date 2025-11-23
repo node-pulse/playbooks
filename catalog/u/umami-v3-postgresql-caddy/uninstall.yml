@@ -17,14 +17,14 @@
       args:
         chdir: "{{ umami_install_dir }}"
       when: umami_exists.stat.exists
-      ignore_errors: true
+      failed_when: false
 
     - name: Remove Umami Docker images
       ansible.builtin.command: docker compose down --rmi all
       args:
         chdir: "{{ umami_install_dir }}"
       when: umami_exists.stat.exists
-      ignore_errors: true
+      failed_when: false
 
     - name: Prompt for data deletion
       ansible.builtin.pause:
