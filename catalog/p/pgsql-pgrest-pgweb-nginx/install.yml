@@ -3,18 +3,6 @@
   hosts: all
   become: true
   vars:
-    install_dir: "{{ install_dir | default('/opt/postgresql-stack') }}"
-    data_dir: "{{ install_dir }}/data"
-    postgres_port: "{{ postgres_port | default(5432) }}"
-    postgrest_port: "{{ postgrest_port | default(3000) }}"
-    pgweb_port: "{{ pgweb_port | default(8081) }}"
-    authelia_port: "{{ authelia_port | default(9091) }}"
-    auth_port: "{{ auth_port | default(5000) }}"
-    postgres_db: "{{ postgres_db | default('postgres') }}"
-    postgres_user: "{{ postgres_user | default('postgres') }}"
-    postgrest_role: "{{ postgrest_role | default('authenticator') }}"
-    postgrest_anon_role: "{{ postgrest_anon_role | default('anon') }}"
-    enable_ssl: "{{ enable_ssl | default(true) }}"
     # Path-based routing - all services under one domain
     pgweb_path: "/pgweb"
     postgrest_path: "/postgrest"
@@ -22,6 +10,24 @@
     authelia_path: "/authelia"
 
   tasks:
+    - name: Set default values for configurable variables
+      ansible.builtin.set_fact:
+        install_dir: "{{ install_dir | default('/opt/postgresql-stack') }}"
+        postgres_port: "{{ postgres_port | default(5432) }}"
+        postgrest_port: "{{ postgrest_port | default(3000) }}"
+        pgweb_port: "{{ pgweb_port | default(8081) }}"
+        authelia_port: "{{ authelia_port | default(9091) }}"
+        auth_port: "{{ auth_port | default(5000) }}"
+        postgres_db: "{{ postgres_db | default('postgres') }}"
+        postgres_user: "{{ postgres_user | default('postgres') }}"
+        postgrest_role: "{{ postgrest_role | default('authenticator') }}"
+        postgrest_anon_role: "{{ postgrest_anon_role | default('anon') }}"
+        enable_ssl: "{{ enable_ssl | default(true) }}"
+
+    - name: Set data directory based on install directory
+      ansible.builtin.set_fact:
+        data_dir: "{{ install_dir }}/data"
+
     - name: Validate required variables
       ansible.builtin.assert:
         that:
@@ -334,8 +340,8 @@
       changed_when: "'Started' in docker_up.stderr or 'Created' in docker_up.stderr"
 
     - name: Wait for PostgreSQL to be ready
-      ansible.builtin.shell: docker exec postgresql-stack-db pg_isready
-      changed_when: false -U {{ postgres_user }}
+      ansible.builtin.shell: docker exec postgresql-stack-db pg_isready -U {{ postgres_user }}
+      changed_when: false
       register: result
       until: result.rc == 0
       retries: 30
