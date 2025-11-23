@@ -1,24 +1,26 @@
 {
   "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/refs/heads/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
-
   "id": "pb_N8n7Qm5Pw2",
   "name": "n8n Workflow Automation",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Deploy n8n workflow automation platform with PostgreSQL and Caddy reverse proxy",
-
   "author": {
     "name": "Yumin",
     "email": "yuminops@gmail.com",
     "url": "https://github.com/guiyumin",
     "status": "community"
   },
-
   "homepage": "https://github.com/node-pulse/playbooks/tree/main/catalog/n/n8n",
   "repository": "https://github.com/node-pulse/playbooks",
-
   "category": "automation",
-  "tags": ["automation", "workflow", "n8n", "docker", "postgresql", "caddy"],
-
+  "tags": [
+    "automation",
+    "workflow",
+    "n8n",
+    "docker",
+    "postgresql",
+    "caddy"
+  ],
   "structure": {
     "playbooks": {
       "install": {
@@ -54,9 +56,7 @@
     ],
     "files": []
   },
-
   "ansible_version": ">=2.10",
-
   "os_support": [
     {
       "distro": "ubuntu",
@@ -84,7 +84,6 @@
       "arch": "both"
     }
   ],
-
   "variables": [
     {
       "name": "n8n_domain",
@@ -188,7 +187,6 @@
       "required": false
     }
   ],
-
   "health_checks": [
     {
       "type": "command",
@@ -201,7 +199,6 @@
       "timeout": 10
     }
   ],
-
   "dangerous_operations": [
     "Installs Docker and Docker Compose",
     "Creates systemd service for n8n stack",
@@ -209,9 +206,7 @@
     "Stores database credentials in /opt/n8n/.env",
     "Manages PostgreSQL database with persistent storage"
   ],
-
   "license": "MIT",
-
   "created_at": "2025-11-16T00:00:00Z",
   "updated_at": "2025-11-16T00:00:00Z"
 }

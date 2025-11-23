@@ -1,24 +1,25 @@
 {
   "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/refs/heads/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
-
   "id": "pb_Xk7nM2pQw9",
   "name": "Fail2Ban Intrusion Prevention",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Install and configure Fail2Ban to protect SSH and other services from brute-force attacks",
-
   "author": {
     "name": "Yumin",
     "email": "yuminops@gmail.com",
     "url": "https://github.com/guiyumin",
     "status": "community"
   },
-
   "homepage": "https://github.com/node-pulse/playbooks/tree/main/catalog/f/fail2ban",
   "repository": "https://github.com/node-pulse/playbooks",
-
   "category": "security",
-  "tags": ["security", "ssh", "intrusion-prevention", "fail2ban", "firewall"],
-
+  "tags": [
+    "security",
+    "ssh",
+    "intrusion-prevention",
+    "fail2ban",
+    "firewall"
+  ],
   "structure": {
     "playbooks": {
       "install": {
@@ -45,9 +46,7 @@
     ],
     "files": []
   },
-
   "ansible_version": ">=2.10",
-
   "os_support": [
     {
       "distro": "ubuntu",
@@ -125,7 +124,6 @@
       "arch": "both"
     }
   ],
-
   "variables": [
     {
       "name": "bantime",
@@ -195,7 +193,6 @@
       "max": 30
     }
   ],
-
   "health_checks": [
     {
       "type": "command",
@@ -203,16 +200,13 @@
       "timeout": 5
     }
   ],
-
   "dangerous_operations": [
     "Installs fail2ban package",
     "Modifies firewall rules (iptables/nftables)",
     "Automatically bans IPs based on configured thresholds",
     "Creates systemd service 'fail2ban'"
   ],
-
   "license": "MIT",
-
   "created_at": "2025-11-07T12:00:00Z",
   "updated_at": "2025-11-14T00:00:00Z"
 }

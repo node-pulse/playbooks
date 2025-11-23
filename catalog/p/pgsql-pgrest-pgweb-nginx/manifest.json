@@ -1,21 +1,17 @@
 {
   "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/refs/heads/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
-
   "id": "pb_PgRstPgWeb",
   "name": "PostgreSQL Stack (PostgreSQL + PostgREST + pgweb + Nginx)",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Complete PostgreSQL service stack with PostgreSQL 18, PostgREST RESTful API with JWT authentication, pgweb web UI protected by Authelia 2FA, and Nginx reverse proxy with automatic SSL",
-
   "author": {
     "name": "Yumin",
     "email": "yuminops@gmail.com",
     "url": "https://github.com/guiyumin",
     "status": "community"
   },
-
   "homepage": "https://github.com/node-pulse/playbooks/tree/main/catalog/p/pgsql-pgrest-pgweb-nginx",
   "repository": "https://github.com/node-pulse/playbooks",
-
   "category": "database",
   "tags": [
     "postgresql",
@@ -28,7 +24,6 @@
     "rest-api",
     "nginx"
   ],
-
   "structure": {
     "playbooks": {
       "install": {
@@ -84,9 +79,7 @@
     ],
     "files": []
   },
-
   "ansible_version": ">=2.10",
-
   "os_support": [
     {
       "distro": "ubuntu",
@@ -164,7 +157,6 @@
       "arch": "both"
     }
   ],
-
   "variables": [
     {
       "name": "domain",
@@ -328,7 +320,6 @@
       "required": false
     }
   ],
-
   "health_checks": [
     {
       "type": "tcp",
@@ -371,7 +362,6 @@
       "timeout": 5
     }
   ],
-
   "dangerous_operations": [
     "Installs Docker and Docker Compose if not present",
     "Creates PostgreSQL 18 database with persistent storage",
@@ -385,9 +375,7 @@
     "Stores database data in /opt/postgresql-stack/data directory",
     "May modify Nginx configuration in /etc/nginx/"
   ],
-
   "license": "MIT",
-
   "created_at": "2025-11-19T00:00:00Z",
   "updated_at": "2025-11-22T00:00:00Z"
 }

@@ -1,21 +1,17 @@
 {
   "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/refs/heads/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
-
   "id": "pb_89MKMAAanI",
   "name": "Umami v3 (PostgreSQL + Nginx)",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Opinionated deployment of Umami v3 with PostgreSQL database and Nginx reverse proxy with automatic SSL via Certbot",
-
   "author": {
     "name": "Yumin",
     "email": "yuminops@gmail.com",
     "url": "https://github.com/guiyumin",
     "status": "community"
   },
-
   "homepage": "https://github.com/node-pulse/playbooks/tree/main/catalog/u/umami-v3-postgresql-nginx",
   "repository": "https://github.com/node-pulse/playbooks",
-
   "category": "monitoring",
   "tags": [
     "analytics",
@@ -26,7 +22,6 @@
     "postgresql",
     "nginx"
   ],
-
   "structure": {
     "playbooks": {
       "install": {
@@ -45,7 +40,9 @@
       },
       "uninstall": {
         "file": "uninstall.yml",
-        "variables": ["umami_install_dir"]
+        "variables": [
+          "umami_install_dir"
+        ]
       }
     },
     "templates": [
@@ -56,9 +53,7 @@
     ],
     "files": []
   },
-
   "ansible_version": ">=2.10",
-
   "os_support": [
     {
       "distro": "ubuntu",
@@ -136,7 +131,6 @@
       "arch": "both"
     }
   ],
-
   "variables": [
     {
       "name": "umami_domain",
@@ -214,7 +208,6 @@
       "pattern": "^/[a-zA-Z0-9/_-]+$"
     }
   ],
-
   "health_checks": [
     {
       "type": "tcp",
@@ -238,7 +231,6 @@
       "timeout": 5
     }
   ],
-
   "dangerous_operations": [
     "Installs Docker and Docker Compose if not present",
     "Creates PostgreSQL database with persistent storage",
@@ -248,9 +240,7 @@
     "Stores analytics data in /opt/umami/data directory",
     "May modify Nginx configuration in /etc/nginx/sites-available/"
   ],
-
   "license": "MIT",
-
   "created_at": "2025-11-18T00:00:00Z",
   "updated_at": "2025-11-18T00:00:00Z"
 }
