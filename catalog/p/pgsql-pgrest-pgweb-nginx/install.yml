@@ -50,6 +50,18 @@
         postgrest_password: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
       when: postgrest_password is not defined or postgrest_password | length == 0
 
+    - name: Validate PostgREST password is URL-safe
+      ansible.builtin.assert:
+        that:
+          - postgrest_password is match('^[a-zA-Z0-9]+$')
+        fail_msg: |
+          ERROR: postgrest_password contains special characters that break PostgreSQL connection URIs.
+
+          The password must contain only letters and numbers (no @, !, #, etc.)
+          Current password: {{ postgrest_password }}
+
+          Please set a URL-safe password or let the playbook generate one automatically.
+
     - name: Generate PostgREST JWT secret if not provided
       ansible.builtin.set_fact:
         postgrest_jwt_secret: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"

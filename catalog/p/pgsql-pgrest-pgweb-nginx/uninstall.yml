@@ -23,29 +23,12 @@
           - "PostgreSQL Stack may not be installed or was installed in a different location."
       when: not install_dir_stat.stat.exists
 
-    - name: Confirm data deletion
-      ansible.builtin.pause:
-        prompt: |
-
-          ⚠️  WARNING: This will permanently delete all PostgreSQL data! ⚠️
-
-          This includes:
-          - All databases and tables
-          - All Authelia user data and 2FA configurations
-          - All configuration files
-
-          Location: {{ install_dir }}
-
-          Are you sure you want to continue? Type 'yes' to confirm
-      register: confirm_delete
+    - name: Display warning about data deletion
+      ansible.builtin.debug:
+        msg:
+          - "⚠️  WARNING: Permanently deleting all PostgreSQL data at {{ install_dir }}"
+          - "This includes all databases, tables, Authelia user data, and configuration files"
       when: install_dir_stat.stat.exists
-
-    - name: Abort if not confirmed
-      ansible.builtin.fail:
-        msg: "Uninstallation aborted by user"
-      when:
-        - install_dir_stat.stat.exists
-        - confirm_delete.user_input | default('') != 'yes'
 
     - name: Stop and remove Docker containers
       ansible.builtin.command: docker compose down -v
