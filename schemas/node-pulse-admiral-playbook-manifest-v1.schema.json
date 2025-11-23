@@ -42,7 +42,7 @@
       "type": "string",
       "description": "Short description (max 200 chars)",
       "minLength": 10,
-      "maxLength": 200
+      "maxLength": 1000
     },
     "author": {
       "type": "object",
@@ -206,7 +206,16 @@
           "distro": {
             "type": "string",
             "description": "OS distribution name",
-            "enum": ["ubuntu", "debian", "centos", "rhel", "rocky", "alma", "oracle", "amazon"]
+            "enum": [
+              "ubuntu",
+              "debian",
+              "centos",
+              "rhel",
+              "rocky",
+              "alma",
+              "oracle",
+              "amazon"
+            ]
           },
           "version": {
             "type": "string",
