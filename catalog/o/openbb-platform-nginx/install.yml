@@ -201,17 +201,30 @@
         dest: "{{ openbb_install_dir }}/compose.yml"
         mode: '0644'
 
-    - name: Check if OpenBB container is already running
-      ansible.builtin.command: docker ps -q -f name=openbb
-      register: openbb_running
+    - name: Check for existing OpenBB containers
+      ansible.builtin.shell: |
+        set -o pipefail
+        docker ps -a --format '{{`{{.Names}}`}}' | grep -i 'openbb' || true
+      register: existing_containers
       changed_when: false
 
-    - name: Stop existing OpenBB container if running
-      ansible.builtin.command: docker compose -f {{ openbb_install_dir }}/compose.yml down
-      args:
-        chdir: "{{ openbb_install_dir }}"
-      when: openbb_running.stdout | length > 0
-      changed_when: true
+    - name: Fail if OpenBB containers already exist
+      ansible.builtin.fail:
+        msg: |
+          ERROR: Existing OpenBB containers detected.
+
+          Existing containers found:
+          {{ existing_containers.stdout if existing_containers.stdout else '  (none)' }}
+
+          To avoid data loss, this playbook will NOT automatically remove existing containers.
+
+          If you want to reinstall:
+          1. Run the uninstall playbook first: ansible-playbook uninstall.yml
+          2. Then run this install playbook again
+
+          Or manually remove containers:
+            docker compose -f {{ openbb_install_dir }}/compose.yml down -v
+      when: existing_containers.stdout != ''
 
     - name: Pull OpenBB Platform API image
       ansible.builtin.command: docker compose -f {{ openbb_install_dir }}/compose.yml pull

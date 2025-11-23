@@ -348,15 +348,41 @@
       register: docker_pull
       changed_when: "'Downloaded' in docker_pull.stderr or 'Pulled' in docker_pull.stderr"
 
-    - name: Remove any existing containers from previous failed deployments
+    - name: Check for existing containers
       ansible.builtin.shell: |
         set -o pipefail
-        # Remove containers if they exist (from failed previous attempts)
-        docker rm -f {{ project_name }}-db {{ project_name }}-postgrest {{ project_name }}-pgweb {{ project_name }}-auth {{ project_name }}-authelia 2>/dev/null || true
-        # Remove network if it exists
-        docker network rm {{ project_name }}_default 2>/dev/null || true
-      failed_when: false
+        docker ps -a --format '{{`{{.Names}}`}}' | grep -E '^({{ project_name }}-db|{{ project_name }}-postgrest|{{ project_name }}-pgweb|{{ project_name }}-auth|{{ project_name }}-authelia)$' || true
+      register: existing_containers
       changed_when: false
+
+    - name: Check for existing network
+      ansible.builtin.shell: |
+        set -o pipefail
+        docker network ls --format '{{`{{.Name}}`}}' | grep -E '^{{ project_name }}_default$' || true
+      register: existing_network
+      changed_when: false
+
+    - name: Fail if containers or network already exist
+      fail:
+        msg: |
+          ERROR: Existing containers or network detected for project '{{ project_name }}'.
+
+          Existing containers found:
+          {{ existing_containers.stdout if existing_containers.stdout else '  (none)' }}
+
+          Existing network found:
+          {{ existing_network.stdout if existing_network.stdout else '  (none)' }}
+
+          To avoid data loss, this playbook will NOT automatically remove existing containers.
+
+          If you want to reinstall:
+          1. Run the uninstall playbook first: ansible-playbook uninstall.yml
+          2. Then run this install playbook again
+
+          Or manually remove containers and network:
+            docker rm -f {{ project_name }}-db {{ project_name }}-postgrest {{ project_name }}-pgweb {{ project_name }}-auth {{ project_name }}-authelia
+            docker network rm {{ project_name }}_default
+      when: existing_containers.stdout != '' or existing_network.stdout != ''
 
     - name: Start PostgreSQL Stack services
       ansible.builtin.command: docker compose up -d

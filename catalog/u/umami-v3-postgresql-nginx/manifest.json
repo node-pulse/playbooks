@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/refs/heads/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
   "id": "pb_89MKMAAanI",
   "name": "Umami v3 (PostgreSQL + Nginx)",
-  "version": "1.4.6",
+  "version": "1.4.7",
   "description": "Opinionated deployment of Umami v3 with PostgreSQL database and Nginx reverse proxy with automatic SSL via Certbot",
   "author": {
     "name": "Yumin",

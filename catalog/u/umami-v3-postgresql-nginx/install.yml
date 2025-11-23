@@ -230,15 +230,41 @@
         name: nginx
         state: reloaded
 
-    - name: Clean up existing containers and network
+    - name: Check for existing containers
       ansible.builtin.shell: |
         set -o pipefail
-        # Remove containers if they exist (from failed previous attempts)
-        docker rm -f umami umami-db 2>/dev/null || true
-        # Remove network if it exists
-        docker network rm umami_default 2>/dev/null || true
-      failed_when: false
+        docker ps -a --format '{{`{{.Names}}`}}' | grep -E '^(umami|umami-db)$' || true
+      register: existing_containers
       changed_when: false
+
+    - name: Check for existing network
+      ansible.builtin.shell: |
+        set -o pipefail
+        docker network ls --format '{{`{{.Name}}`}}' | grep -E '^umami_default$' || true
+      register: existing_network
+      changed_when: false
+
+    - name: Fail if containers or network already exist
+      fail:
+        msg: |
+          ERROR: Existing Umami containers or network detected.
+
+          Existing containers found:
+          {{ existing_containers.stdout if existing_containers.stdout else '  (none)' }}
+
+          Existing network found:
+          {{ existing_network.stdout if existing_network.stdout else '  (none)' }}
+
+          To avoid data loss, this playbook will NOT automatically remove existing containers.
+
+          If you want to reinstall:
+          1. Run the uninstall playbook first: ansible-playbook uninstall.yml
+          2. Then run this install playbook again
+
+          Or manually remove containers and network:
+            docker rm -f umami umami-db
+            docker network rm umami_default
+      when: existing_containers.stdout != '' or existing_network.stdout != ''
 
     - name: Pull Umami Docker images
       ansible.builtin.command: docker compose pull
