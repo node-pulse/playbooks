@@ -117,7 +117,7 @@
             enabled: true
 
         - name: Install Docker packages
-          ansible.builtin.yum:
+          ansible.builtin.dnf:
             name:
               - docker-ce
               - docker-ce-cli
@@ -132,7 +132,7 @@
     - name: Install Docker (Amazon Linux)
       block:
         - name: Install Docker
-          ansible.builtin.yum:
+          ansible.builtin.dnf:
             name:
               - docker
             state: present
@@ -162,7 +162,7 @@
         - ansible_os_family == "Debian"
 
     - name: Install Nginx if not present (RHEL/Rocky/Alma/Oracle)
-      ansible.builtin.yum:
+      ansible.builtin.dnf:
         name: nginx
         state: present
       when:
@@ -170,7 +170,7 @@
         - ansible_os_family == "RedHat"
 
     - name: Install Nginx if not present (Amazon Linux)
-      ansible.builtin.yum:
+      ansible.builtin.dnf:
         name: nginx
         state: present
       when:
@@ -211,6 +211,7 @@
       args:
         chdir: "{{ openbb_install_dir }}"
       when: openbb_running.stdout | length > 0
+      changed_when: true
 
     - name: Pull OpenBB Platform API image
       ansible.builtin.command: docker compose -f {{ openbb_install_dir }}/compose.yml pull
@@ -271,7 +272,7 @@
         - ansible_os_family == "Debian"
 
     - name: Install Certbot and Nginx plugin (RHEL/Rocky/Alma/Oracle)
-      ansible.builtin.yum:
+      ansible.builtin.dnf:
         name:
           - certbot
           - python3-certbot-nginx
@@ -281,7 +282,7 @@
         - ansible_os_family == "RedHat"
 
     - name: Install Certbot and Nginx plugin (Amazon Linux)
-      ansible.builtin.yum:
+      ansible.builtin.dnf:
         name:
           - certbot
           - python3-certbot-nginx
