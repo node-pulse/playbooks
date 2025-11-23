@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Run ansible-lint on playbook entry points (warnings don't fail)
+# Run ansible-lint on playbook files (warnings don't fail)
 # Usage: validate-ansible-lint.sh <playbook_dir> [<playbook_dir> ...]
 
 for dir in "$@"; do
@@ -15,24 +15,37 @@ for dir in "$@"; do
     continue
   fi
 
-  entry_point=$(jq -r '.entry_point' "$manifest_file" 2>/dev/null || echo "")
-  playbook_file="$dir/$entry_point"
+  # Get install and uninstall playbook files
+  install_file=$(jq -r '.structure.playbooks.install.file' "$manifest_file" 2>/dev/null || echo "")
+  uninstall_file=$(jq -r '.structure.playbooks.uninstall.file' "$manifest_file" 2>/dev/null || echo "")
 
-  if [ ! -f "$playbook_file" ]; then
-    continue
+  # Lint install playbook
+  if [ -n "$install_file" ] && [ "$install_file" != "null" ] && [ -f "$dir/$install_file" ]; then
+    playbook_file="$dir/$install_file"
+    echo "::group::Running ansible-lint on $playbook_file"
+
+    if ! ansible-lint "$playbook_file" 2>&1; then
+      echo "::warning file=$playbook_file::ansible-lint warnings/errors in $playbook_file"
+    else
+      echo "✅ No ansible-lint issues in $playbook_file"
+    fi
+
+    echo "::endgroup::"
   fi
 
-  echo "::group::Running ansible-lint on $playbook_file"
+  # Lint uninstall playbook
+  if [ -n "$uninstall_file" ] && [ "$uninstall_file" != "null" ] && [ -f "$dir/$uninstall_file" ]; then
+    playbook_file="$dir/$uninstall_file"
+    echo "::group::Running ansible-lint on $playbook_file"
 
-  # Run ansible-lint but don't fail on warnings
-  if ! ansible-lint "$playbook_file" 2>&1; then
-    echo "::warning file=$playbook_file::ansible-lint warnings/errors in $playbook_file"
-    # Don't set EXIT_CODE=1 for lint warnings
-  else
-    echo "✅ No ansible-lint issues in $playbook_file"
+    if ! ansible-lint "$playbook_file" 2>&1; then
+      echo "::warning file=$playbook_file::ansible-lint warnings/errors in $playbook_file"
+    else
+      echo "✅ No ansible-lint issues in $playbook_file"
+    fi
+
+    echo "::endgroup::"
   fi
-
-  echo "::endgroup::"
 done
 
 # Don't fail build on lint warnings

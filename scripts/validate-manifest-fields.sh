@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage: validate-manifest-fields.sh <playbook_dir> [<playbook_dir> ...]
 
 EXIT_CODE=0
-REQUIRED_FIELDS=("id" "name" "version" "description" "category" "entry_point" "ansible_version" "os_support" "license")
+REQUIRED_FIELDS=("id" "name" "version" "description" "category" "ansible_version" "os_support" "license" "structure")
 
 for dir in "$@"; do
   if [ -z "$dir" ]; then

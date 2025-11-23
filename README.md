@@ -86,7 +86,6 @@ playbooks/
 │   ├── find-changed-playbooks.sh
 │   ├── validate-ansible-lint.sh
 │   ├── validate-category.sh
-│   ├── validate-entry-point.sh
 │   ├── validate-json-schema.sh
 │   ├── validate-json-syntax.sh
 │   ├── validate-manifest-fields.sh

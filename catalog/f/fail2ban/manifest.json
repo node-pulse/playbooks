@@ -19,8 +19,6 @@
   "category": "security",
   "tags": ["security", "ssh", "intrusion-prevention", "fail2ban", "firewall"],
 
-  "entry_point": "install.yml",
-
   "structure": {
     "playbooks": {
       "install": {

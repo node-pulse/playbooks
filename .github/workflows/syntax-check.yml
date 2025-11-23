@@ -74,11 +74,6 @@ jobs:
         run: |
           ./scripts/validate-manifest-fields.sh ${{ steps.changes.outputs.dirs }}
 
-      - name: Validate entry point exists
-        if: steps.changes.outputs.dirs != ''
-        run: |
-          ./scripts/validate-entry-point.sh ${{ steps.changes.outputs.dirs }}
-
       - name: Validate YAML syntax
         if: steps.changes.outputs.dirs != ''
         run: |

@@ -19,8 +19,6 @@
   "category": "automation",
   "tags": ["automation", "workflow", "n8n", "docker", "postgresql", "caddy"],
 
-  "entry_point": "install.yml",
-
   "structure": {
     "playbooks": {
       "install": {

@@ -27,8 +27,6 @@
     "caddy"
   ],
 
-  "entry_point": "install.yml",
-
   "structure": {
     "playbooks": {
       "install": {

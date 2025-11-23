@@ -73,10 +73,18 @@ echo "pb_$(openssl rand -base64 8 | tr -dc 'A-Za-z0-9' | head -c10)"
 
   "category": "security",
   "tags": ["security", "ssh", "fail2ban"],
-  "entry_point": "playbook.yml",
 
   "structure": {
-    "playbook": "playbook.yml",
+    "playbooks": {
+      "install": {
+        "file": "install.yml",
+        "variables": ["port", "enable_ssl"]
+      },
+      "uninstall": {
+        "file": "uninstall.yml",
+        "variables": []
+      }
+    },
     "templates": ["templates/config.j2"],
     "files": ["files/script.sh"]
   },
@@ -137,7 +145,7 @@ echo "pb_$(openssl rand -base64 8 | tr -dc 'A-Za-z0-9' | head -c10)"
 | `author` | object | Author information (name, email, url, status) |
 | `category` | string | One of: `monitoring`, `database`, `search`, `security`, `proxy`, `storage`, `dev-tools` |
 | `tags` | array | Searchable tags (max 10) |
-| `entry_point` | string | Main playbook file (e.g., "playbook.yml") |
+| `structure` | object | Playbook files structure (must include install and uninstall playbooks) |
 | `ansible_version` | string | Minimum Ansible version (e.g., ">=2.10") |
 | `os_support` | array | OS compatibility (distro, version, arch) |
 | `license` | string | SPDX license identifier |
