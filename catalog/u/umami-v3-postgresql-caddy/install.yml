@@ -251,6 +251,16 @@
       when: import_check.stdout == 'missing'
       notify: Reload Caddy
 
+    - name: Clean up existing containers and network
+      ansible.builtin.shell: |
+        set -o pipefail
+        # Remove containers if they exist (from failed previous attempts)
+        docker rm -f umami umami-db 2>/dev/null || true
+        # Remove network if it exists
+        docker network rm umami_default 2>/dev/null || true
+      failed_when: false
+      changed_when: false
+
     - name: Pull Umami Docker images
       ansible.builtin.command: docker compose pull
       args:

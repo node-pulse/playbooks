@@ -12,12 +12,19 @@
         path: "{{ umami_install_dir }}/compose.yml"
       register: umami_exists
 
-    - name: Stop and remove Umami containers
+    - name: Stop and remove Umami containers via Docker Compose
       ansible.builtin.command: docker compose down -v
       args:
         chdir: "{{ umami_install_dir }}"
       when: umami_exists.stat.exists
       failed_when: false
+
+    - name: Force remove Umami containers (in case of conflicts)
+      ansible.builtin.shell: |
+        docker rm -f umami umami-db 2>/dev/null || true
+        docker network rm umami_default 2>/dev/null || true
+      failed_when: false
+      changed_when: false
 
     - name: Remove Umami Docker images
       ansible.builtin.command: docker compose down --rmi all
@@ -54,6 +61,27 @@
         state: absent
       when: umami_exists.stat.exists
 
+    - name: Remove Caddy configuration
+      ansible.builtin.file:
+        path: /etc/caddy/conf.d/umami.conf
+        state: absent
+      failed_when: false
+
+    - name: Reload Caddy if running
+      ansible.builtin.systemd:
+        name: caddy
+        state: reloaded
+      failed_when: false
+
+    - name: Remove SSL certificates (Caddy managed)
+      ansible.builtin.file:
+        path: /var/lib/caddy/certificates/acme-v02.api.letsencrypt.org-directory/{{ umami_domain }}
+        state: absent
+      when:
+        - umami_domain is defined
+        - umami_domain | length > 0
+      failed_when: false
+
     - name: Display uninstall summary
       ansible.builtin.debug:
         msg:
@@ -62,11 +90,19 @@
           - "Removed:"
           - "  - Docker containers and images"
           - "  - Configuration files"
+          - "  - Caddy configurations"
+          - "  - SSL certificates (if domain was provided)"
           - "{{ '  - Analytics data and database' if (delete_data_prompt.user_input | default('no') | lower == 'yes') else '  - Analytics data preserved in ' + umami_data_dir }}"
           - ""
-          - "Docker and Docker Compose remain installed for other applications."
-          - "To remove Docker completely, run: apt remove docker-ce docker-ce-cli (Debian/Ubuntu)"
-          - "                            or: dnf remove docker-ce docker-ce-cli (RHEL 8+/Rocky/Alma)"
+          - "NOT removed (manual cleanup required if desired):"
+          - "  - Docker"
+          - "  - Caddy"
+          - ""
+          - "To completely remove all components:"
+          - "  Docker: apt remove docker-ce docker-ce-cli containerd.io (Debian/Ubuntu)"
+          - "          dnf remove docker-ce docker-ce-cli containerd.io (RHEL 8+/Rocky/Alma)"
+          - "  Caddy:  apt remove caddy (Debian/Ubuntu)"
+          - "          dnf remove caddy (RHEL 8+/Rocky/Alma)"
       when: umami_exists.stat.exists
 
     - name: Display message if Umami not found
