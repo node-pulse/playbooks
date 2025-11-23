@@ -336,6 +336,16 @@
       register: docker_pull
       changed_when: "'Downloaded' in docker_pull.stderr or 'Pulled' in docker_pull.stderr"
 
+    - name: Remove any existing containers from previous failed deployments
+      ansible.builtin.shell: |
+        set -o pipefail
+        # Remove containers if they exist (from failed previous attempts)
+        docker rm -f {{ project_name }}-db {{ project_name }}-postgrest {{ project_name }}-pgweb {{ project_name }}-auth {{ project_name }}-authelia 2>/dev/null || true
+        # Remove network if it exists
+        docker network rm {{ project_name }}_default 2>/dev/null || true
+      failed_when: false
+      changed_when: false
+
     - name: Start PostgreSQL Stack services
       ansible.builtin.command: docker compose up -d
       args:
