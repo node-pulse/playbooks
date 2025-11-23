@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage: validate-os-support.sh <playbook_dir> [<playbook_dir> ...]
 
 EXIT_CODE=0
-VALID_DISTROS=("ubuntu" "debian" "centos" "rhel" "rocky" "alma")
+VALID_DISTROS=("ubuntu" "debian" "centos" "rhel" "rocky" "alma" "oracle" "amazon")
 VALID_ARCH=("amd64" "arm64" "both")
 
 for dir in "$@"; do
