@@ -1,33 +1,33 @@
 ---
 - name: Uninstall Umami Web Analytics
   hosts: all
-  become: yes
+  become: true
   vars:
     umami_install_dir: "{{ umami_install_dir | default('/opt/umami') }}"
     umami_data_dir: "{{ umami_install_dir }}/data"
 
   tasks:
     - name: Check if Umami installation exists
-      stat:
+      ansible.builtin.stat:
         path: "{{ umami_install_dir }}/compose.yml"
       register: umami_exists
 
     - name: Stop and remove Umami containers
-      command: docker compose down -v
+      ansible.builtin.command: docker compose down -v
       args:
         chdir: "{{ umami_install_dir }}"
       when: umami_exists.stat.exists
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Remove Umami Docker images
-      command: docker compose down --rmi all
+      ansible.builtin.command: docker compose down --rmi all
       args:
         chdir: "{{ umami_install_dir }}"
       when: umami_exists.stat.exists
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Prompt for data deletion
-      pause:
+      ansible.builtin.pause:
         prompt: |
 
           WARNING: Do you want to delete all Umami data including analytics database?
@@ -41,7 +41,7 @@
       when: umami_exists.stat.exists
 
     - name: Remove Umami data directory
-      file:
+      ansible.builtin.file:
         path: "{{ umami_data_dir }}"
         state: absent
       when:
@@ -49,13 +49,13 @@
         - delete_data_prompt.user_input | default('no') | lower == 'yes'
 
     - name: Remove Umami installation directory
-      file:
+      ansible.builtin.file:
         path: "{{ umami_install_dir }}"
         state: absent
       when: umami_exists.stat.exists
 
     - name: Display uninstall summary
-      debug:
+      ansible.builtin.debug:
         msg:
           - "Umami Web Analytics has been uninstalled!"
           - "=========================================="
@@ -70,6 +70,6 @@
       when: umami_exists.stat.exists
 
     - name: Display message if Umami not found
-      debug:
+      ansible.builtin.debug:
         msg: "Umami installation not found at {{ umami_install_dir }}"
       when: not umami_exists.stat.exists

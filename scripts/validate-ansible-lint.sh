@@ -1,8 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-# Run ansible-lint on playbook files (warnings don't fail)
+# Run ansible-lint on playbook files (ENFORCED - will fail build on errors)
 # Usage: validate-ansible-lint.sh <playbook_dir> [<playbook_dir> ...]
+
+EXIT_CODE=0
 
 for dir in "$@"; do
   if [ -z "$dir" ]; then
@@ -24,8 +26,15 @@ for dir in "$@"; do
     playbook_file="$dir/$install_file"
     echo "::group::Running ansible-lint on $playbook_file"
 
-    if ! ansible-lint "$playbook_file" 2>&1; then
-      echo "::warning file=$playbook_file::ansible-lint warnings/errors in $playbook_file"
+    # Run ansible-lint and capture exit code
+    set +e
+    ansible-lint "$playbook_file"
+    lint_exit_code=$?
+    set -e
+
+    if [ $lint_exit_code -ne 0 ]; then
+      echo "::error file=$playbook_file::ansible-lint found violations in $playbook_file"
+      EXIT_CODE=1
     else
       echo "✅ No ansible-lint issues in $playbook_file"
     fi
@@ -38,8 +47,15 @@ for dir in "$@"; do
     playbook_file="$dir/$uninstall_file"
     echo "::group::Running ansible-lint on $playbook_file"
 
-    if ! ansible-lint "$playbook_file" 2>&1; then
-      echo "::warning file=$playbook_file::ansible-lint warnings/errors in $playbook_file"
+    # Run ansible-lint and capture exit code
+    set +e
+    ansible-lint "$playbook_file"
+    lint_exit_code=$?
+    set -e
+
+    if [ $lint_exit_code -ne 0 ]; then
+      echo "::error file=$playbook_file::ansible-lint found violations in $playbook_file"
+      EXIT_CODE=1
     else
       echo "✅ No ansible-lint issues in $playbook_file"
     fi
@@ -48,5 +64,5 @@ for dir in "$@"; do
   fi
 done
 
-# Don't fail build on lint warnings
-exit 0
+# Exit with failure if any playbook had lint errors
+exit $EXIT_CODE

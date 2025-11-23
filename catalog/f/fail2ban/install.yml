@@ -22,13 +22,13 @@
 
   pre_tasks:
     - name: Verify supported operating system
-      assert:
+      ansible.builtin.assert:
         that:
           - ansible_os_family in supported_os_families
         fail_msg: "This playbook currently supports Debian/Ubuntu and RedHat-family distributions (RHEL/Rocky/Amazon Linux)."
 
     - name: Validate variable ranges
-      assert:
+      ansible.builtin.assert:
         that:
           - bantime >= 60 and bantime <= 86400
           - findtime >= 60 and findtime <= 3600
@@ -44,7 +44,7 @@
           - webhook_timeout: 1-30 seconds
 
     - name: Validate webhook URL format if provided
-      assert:
+      ansible.builtin.assert:
         that:
           - webhook_url is match('^(https?://.*)?$')
         fail_msg: "webhook_url must be empty or a valid HTTP/HTTPS URL"
@@ -52,25 +52,25 @@
 
   tasks:
     - name: Update apt cache
-      apt:
-        update_cache: yes
+      ansible.builtin.apt:
+        update_cache: true
         cache_valid_time: 3600
       when: ansible_pkg_mgr == "apt"
 
     - name: Install fail2ban package
-      apt:
+      ansible.builtin.apt:
         name: fail2ban
         state: present
       when: ansible_pkg_mgr == "apt"
 
     - name: Install fail2ban package (RPM-based)
-      package:
+      ansible.builtin.package:
         name: fail2ban
         state: present
       when: ansible_pkg_mgr in ["dnf", "yum", "microdnf"]
 
     - name: Ensure fail2ban configuration directory exists
-      file:
+      ansible.builtin.file:
         path: /etc/fail2ban
         state: directory
         owner: root
@@ -78,7 +78,7 @@
         mode: '0755'
 
     - name: Ensure fail2ban jail.d directory exists
-      file:
+      ansible.builtin.file:
         path: /etc/fail2ban/jail.d
         state: directory
         owner: root
@@ -86,7 +86,7 @@
         mode: '0755'
 
     - name: Ensure fail2ban action.d directory exists
-      file:
+      ansible.builtin.file:
         path: /etc/fail2ban/action.d
         state: directory
         owner: root
@@ -94,7 +94,7 @@
         mode: '0755'
 
     - name: Deploy jail.local configuration
-      template:
+      ansible.builtin.template:
         src: templates/jail.local.j2
         dest: /etc/fail2ban/jail.local
         owner: root
@@ -103,7 +103,7 @@
       notify: Restart fail2ban
 
     - name: Deploy SSH jail configuration
-      template:
+      ansible.builtin.template:
         src: templates/sshd.local.j2
         dest: /etc/fail2ban/jail.d/sshd.local
         owner: root
@@ -112,7 +112,7 @@
       notify: Restart fail2ban
 
     - name: Deploy webhook action configuration
-      template:
+      ansible.builtin.template:
         src: templates/webhook.conf.j2
         dest: /etc/fail2ban/action.d/webhook.conf
         owner: root
@@ -122,22 +122,22 @@
       notify: Restart fail2ban
 
     - name: Ensure fail2ban service is enabled and started
-      systemd:
+      ansible.builtin.systemd:
         name: fail2ban
-        enabled: yes
+        enabled: true
         state: started
 
     - name: Check fail2ban status
-      command: fail2ban-client status
+      ansible.builtin.command: fail2ban-client status
       register: fail2ban_status
       changed_when: false
 
     - name: Display fail2ban status
-      debug:
+      ansible.builtin.debug:
         var: fail2ban_status.stdout_lines
 
   handlers:
     - name: Restart fail2ban
-      systemd:
+      ansible.builtin.systemd:
         name: fail2ban
         state: restarted

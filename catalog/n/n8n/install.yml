@@ -29,26 +29,26 @@
 
   pre_tasks:
     - name: Verify supported operating system
-      assert:
+      ansible.builtin.assert:
         that:
           - ansible_os_family in supported_os_families
         fail_msg: "This playbook currently supports Debian/Ubuntu distributions."
 
     - name: Validate port range
-      assert:
+      ansible.builtin.assert:
         that:
           - n8n_port >= 1024 and n8n_port <= 65535
         fail_msg: "n8n_port must be between 1024 and 65535"
 
     - name: Validate domain format if provided
-      assert:
+      ansible.builtin.assert:
         that:
           - n8n_domain is match('^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,}$') or n8n_domain == ""
         fail_msg: "n8n_domain must be a valid domain name or empty"
       when: n8n_domain != ""
 
     - name: Validate SSL configuration
-      assert:
+      ansible.builtin.assert:
         that:
           - n8n_domain != ""
           - ssl_email is match('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$')
@@ -56,32 +56,32 @@
       when: enable_ssl
 
     - name: Generate random encryption key if not provided
-      set_fact:
+      ansible.builtin.set_fact:
         n8n_encryption_key: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=32') }}"
       when: n8n_encryption_key == ""
 
     - name: Generate random PostgreSQL password if not provided
-      set_fact:
+      ansible.builtin.set_fact:
         postgres_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=32') }}"
       when: postgres_password == ""
 
     - name: Generate random JWT secret if not provided
-      set_fact:
+      ansible.builtin.set_fact:
         n8n_jwt_secret: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=32') }}"
 
     - name: Set webhook URL based on domain or IP
-      set_fact:
+      ansible.builtin.set_fact:
         n8n_webhook_url: "{{ 'https://' + n8n_domain + '/' if enable_ssl and n8n_domain != '' else 'http://' + n8n_domain + '/' if n8n_domain != '' else 'http://' + ansible_default_ipv4.address + ':' + n8n_port|string + '/' }}"
       when: n8n_webhook_url == ""
 
   tasks:
     - name: Update apt cache
-      apt:
-        update_cache: yes
+      ansible.builtin.apt:
+        update_cache: true
         cache_valid_time: 3600
 
     - name: Install required packages
-      apt:
+      ansible.builtin.apt:
         name:
           - apt-transport-https
           - ca-certificates
@@ -92,17 +92,17 @@
         state: present
 
     - name: Add Docker GPG key
-      apt_key:
+      ansible.builtin.apt_key:
         url: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
         state: present
 
     - name: Add Docker repository
-      apt_repository:
+      ansible.builtin.apt_repository:
         repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }}] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
         state: present
 
     - name: Install Docker
-      apt:
+      ansible.builtin.apt:
         name:
           - docker-ce
           - docker-ce-cli
@@ -110,27 +110,27 @@
           - docker-buildx-plugin
           - docker-compose-plugin
         state: present
-        update_cache: yes
+        update_cache: true
 
     - name: Ensure Docker service is enabled and started
-      systemd:
+      ansible.builtin.systemd:
         name: docker
-        enabled: yes
+        enabled: true
         state: started
 
     - name: Install Docker Python library
-      pip:
+      ansible.builtin.pip:
         name:
           - docker
           - docker-compose
         state: present
 
     - name: Create n8n data directory structure
-      file:
+      ansible.builtin.file:
         path: "{{ item }}"
         state: directory
         owner: root
-        group: root
+        ansible.builtin.group: root
         mode: '0755'
       loop:
         - "{{ n8n_data_dir }}"
@@ -142,28 +142,28 @@
         - "{{ n8n_data_dir }}/caddy_config"
 
     - name: Deploy environment file
-      template:
+      ansible.builtin.template:
         src: templates/env.j2
         dest: "{{ n8n_data_dir }}/.env"
         owner: root
-        group: root
+        ansible.builtin.group: root
         mode: '0600'
       notify: Restart n8n stack
 
     - name: Deploy Caddyfile
-      template:
+      ansible.builtin.template:
         src: templates/Caddyfile.j2
         dest: "{{ n8n_data_dir }}/caddy/Caddyfile"
         owner: root
-        group: root
+        ansible.builtin.group: root
         mode: '0644'
       notify: Restart n8n stack
 
     - name: Deploy Caddy Dockerfile
-      template:
+      ansible.builtin.template:
         dest: "{{ n8n_data_dir }}/caddy/Dockerfile"
         owner: root
-        group: root
+        ansible.builtin.group: root
         mode: '0644'
         content: |
           FROM caddy:{{ caddy_version }}
@@ -171,27 +171,27 @@
       notify: Restart n8n stack
 
     - name: Deploy compose.yml
-      template:
+      ansible.builtin.template:
         src: templates/compose.yml.j2
         dest: "{{ n8n_data_dir }}/compose.yml"
         owner: root
-        group: root
+        ansible.builtin.group: root
         mode: '0644'
       notify: Restart n8n stack
 
     - name: Deploy PostgreSQL init script
-      template:
+      ansible.builtin.template:
         src: templates/postgres-init.sql.j2
         dest: "{{ n8n_data_dir }}/postgres-init.sql"
         owner: root
-        group: root
+        ansible.builtin.group: root
         mode: '0644'
 
     - name: Create systemd service for n8n
-      copy:
+      ansible.builtin.copy:
         dest: /etc/systemd/system/{{ n8n_instance_name }}.service
         owner: root
-        group: root
+        ansible.builtin.group: root
         mode: '0644'
         content: |
           [Unit]
@@ -213,17 +213,17 @@
       notify: Reload systemd
 
     - name: Reload systemd daemon
-      systemd:
-        daemon_reload: yes
+      ansible.builtin.systemd:
+        daemon_reload: true
 
     - name: Enable and start n8n service
-      systemd:
+      ansible.builtin.systemd:
         name: "{{ n8n_instance_name }}"
-        enabled: yes
+        enabled: true
         state: started
 
     - name: Wait for n8n to be ready
-      uri:
+      ansible.builtin.uri:
         url: "http://localhost:{{ n8n_port }}/healthz"
         status_code: 200
         timeout: 5
@@ -231,10 +231,10 @@
       until: result is succeeded
       retries: 30
       delay: 10
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Display deployment information
-      debug:
+      ansible.builtin.debug:
         msg:
           - "n8n has been successfully deployed!"
           - "==================== ACCESS INFORMATION ===================="
@@ -254,10 +254,10 @@
           - "============================================================="
 
     - name: Save credentials to file
-      copy:
+      ansible.builtin.copy:
         dest: "{{ n8n_data_dir }}/credentials.txt"
         owner: root
-        group: root
+        ansible.builtin.group: root
         mode: '0600'
         content: |
           n8n Deployment Credentials
@@ -289,10 +289,10 @@
 
   handlers:
     - name: Restart n8n stack
-      systemd:
+      ansible.builtin.systemd:
         name: "{{ n8n_instance_name }}"
         state: restarted
 
     - name: Reload systemd
-      systemd:
-        daemon_reload: yes
+      ansible.builtin.systemd:
+        daemon_reload: true

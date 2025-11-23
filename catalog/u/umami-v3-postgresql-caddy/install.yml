@@ -1,7 +1,7 @@
 ---
 - name: Install Umami Web Analytics
   hosts: all
-  become: yes
+  become: true
   vars:
     umami_install_dir: "{{ umami_install_dir | default('/opt/umami') }}"
     umami_data_dir: "{{ umami_install_dir }}/data"
@@ -13,7 +13,7 @@
 
   tasks:
     - name: Validate required variables
-      assert:
+      ansible.builtin.assert:
         that:
           - umami_domain is defined
           - umami_domain | length > 0
@@ -21,24 +21,24 @@
         fail_msg: "Missing required variables. umami_domain is required. admin_email is required when enable_ssl is true."
 
     - name: Generate PostgreSQL password if not provided
-      set_fact:
+      ansible.builtin.set_fact:
         postgres_password: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
       when: postgres_password is not defined or postgres_password | length == 0
 
     - name: Generate application secret if not provided
-      set_fact:
+      ansible.builtin.set_fact:
         app_secret: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
       when: app_secret is not defined or app_secret | length == 0
 
     # Caddy Detection Logic
     - name: Check if system Caddy is installed
-      command: which caddy
+      ansible.builtin.command: which caddy
       register: caddy_binary
-      ignore_errors: yes
+      ignore_errors: true
       changed_when: false
 
     - name: Check if ports 80 and 443 are in use
-      shell: |
+      ansible.builtin.shell: |
         port80=$(ss -tuln | grep ':80 ' || echo "free")
         port443=$(ss -tuln | grep ':443 ' || echo "free")
         if [[ "$port80" != "free" ]] || [[ "$port443" != "free" ]]; then
@@ -50,7 +50,7 @@
       changed_when: false
 
     - name: Fail if ports are occupied and Caddy is not installed
-      fail:
+      ansible.builtin.fail:
         msg: |
           ERROR: Ports 80 and/or 443 are already in use, but Caddy is not installed.
 
@@ -65,14 +65,14 @@
         - ports_check.stdout == 'in_use'
 
     - name: Display Caddy deployment decision
-      debug:
+      ansible.builtin.debug:
         msg:
           - "Deploying with system Caddy (supports multiple applications on one server)"
           - "{{ 'Will use existing Caddy installation' if caddy_binary.rc == 0 else 'Will install Caddy from official repository' }}"
           - "Configuration: /etc/caddy/conf.d/umami.conf"
 
     - name: Install required packages
-      package:
+      ansible.builtin.package:
         name:
           - curl
           - ca-certificates
@@ -80,32 +80,32 @@
         state: present
 
     - name: Check if Docker is installed
-      command: docker --version
+      ansible.builtin.command: docker --version
       register: docker_installed
-      ignore_errors: yes
+      ignore_errors: true
       changed_when: false
 
     - name: Install Docker (Debian/Ubuntu)
       block:
         - name: Add Docker GPG key
-          apt_key:
+          ansible.builtin.apt_key:
             url: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
             state: present
 
         - name: Add Docker repository
-          apt_repository:
+          ansible.builtin.apt_repository:
             repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }}] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
             state: present
 
         - name: Install Docker packages
-          apt:
+          ansible.builtin.apt:
             name:
               - docker-ce
               - docker-ce-cli
               - containerd.io
               - docker-compose-plugin
             state: present
-            update_cache: yes
+            update_cache: true
       when:
         - docker_installed.rc != 0
         - ansible_os_family == "Debian"
@@ -117,12 +117,12 @@
             name: docker-ce
             description: Docker CE Stable
             baseurl: "https://download.docker.com/linux/{{ 'centos' if ansible_distribution == 'CentOS' else 'rhel' if ansible_distribution in ['RedHat', 'OracleLinux'] else ansible_distribution | lower }}/{{ ansible_distribution_major_version }}/$basearch/stable"
-            gpgcheck: yes
+            gpgcheck: true
             gpgkey: "https://download.docker.com/linux/{{ 'centos' if ansible_distribution == 'CentOS' else 'rhel' if ansible_distribution in ['RedHat', 'OracleLinux'] else ansible_distribution | lower }}/gpg"
-            enabled: yes
+            enabled: true
 
         - name: Install Docker packages
-          yum:
+          ansible.builtin.yum:
             name:
               - docker-ce
               - docker-ce-cli
@@ -134,13 +134,13 @@
         - ansible_os_family == "RedHat"
 
     - name: Start and enable Docker service
-      systemd:
+      ansible.builtin.systemd:
         name: docker
         state: started
-        enabled: yes
+        enabled: true
 
     - name: Create Umami directories
-      file:
+      ansible.builtin.file:
         path: "{{ item }}"
         state: directory
         mode: '0755'
@@ -149,51 +149,51 @@
         - "{{ umami_data_dir }}"
 
     - name: Create .env file
-      template:
+      ansible.builtin.template:
         src: templates/env.j2
         dest: "{{ umami_install_dir }}/.env"
         mode: '0600'
 
     - name: Create compose.yml
-      template:
+      ansible.builtin.template:
         src: templates/compose.yml.j2
         dest: "{{ umami_install_dir }}/compose.yml"
         mode: '0644'
 
     # System Caddy - Install or use existing Caddy installation
     - name: Check if system Caddy is already installed
-      command: which caddy
+      ansible.builtin.command: which caddy
       register: system_caddy_check
-      ignore_errors: yes
+      ignore_errors: true
       changed_when: false
 
     - name: Install Caddy from official repository (Debian/Ubuntu)
       block:
         - name: Install Caddy dependencies
-          apt:
+          ansible.builtin.apt:
             name:
               - debian-keyring
               - debian-archive-keyring
               - apt-transport-https
             state: present
-            update_cache: yes
+            update_cache: true
 
         - name: Add Caddy GPG key
-          apt_key:
+          ansible.builtin.apt_key:
             url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
             state: present
 
         - name: Add Caddy repository
-          apt_repository:
+          ansible.builtin.apt_repository:
             repo: "deb https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
             state: present
             filename: caddy-stable
 
         - name: Install Caddy
-          apt:
+          ansible.builtin.apt:
             name: caddy
             state: present
-            update_cache: yes
+            update_cache: true
       when:
         - system_caddy_check.rc != 0
         - ansible_os_family == "Debian"
@@ -205,12 +205,12 @@
             name: caddy
             description: Caddy Repository
             baseurl: https://dl.cloudsmith.io/public/caddy/stable/rpm/el/$releasever/$basearch
-            gpgcheck: yes
+            gpgcheck: true
             gpgkey: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
-            enabled: yes
+            enabled: true
 
         - name: Install Caddy
-          yum:
+          ansible.builtin.yum:
             name: caddy
             state: present
       when:
@@ -218,54 +218,54 @@
         - ansible_os_family == "RedHat"
 
     - name: Start and enable Caddy service
-      systemd:
+      ansible.builtin.systemd:
         name: caddy
         state: started
-        enabled: yes
+        enabled: true
 
     - name: Ensure /etc/caddy/conf.d directory exists
-      file:
+      ansible.builtin.file:
         path: /etc/caddy/conf.d
         state: directory
         mode: '0755'
 
     - name: Create Umami configuration for system Caddy
-      template:
+      ansible.builtin.template:
         src: templates/umami-system.conf.j2
         dest: /etc/caddy/conf.d/umami.conf
         mode: '0644'
       notify: reload_caddy
 
     - name: Check if import directive exists in main Caddyfile
-      shell: grep -q "import /etc/caddy/conf.d/\*.conf" /etc/caddy/Caddyfile || echo "missing"
+      ansible.builtin.shell: grep -q "import /etc/caddy/conf.d/\*.conf" /etc/caddy/Caddyfile || echo "missing"
       register: import_check
       changed_when: false
 
     - name: Add import directive to main Caddyfile if missing
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /etc/caddy/Caddyfile
         line: "import /etc/caddy/conf.d/*.conf"
         insertafter: EOF
-        create: no
+        create: false
       when: import_check.stdout == 'missing'
       notify: reload_caddy
 
     - name: Pull Umami Docker images
-      command: docker compose pull
+      ansible.builtin.command: docker compose pull
       args:
         chdir: "{{ umami_install_dir }}"
       register: docker_pull
       changed_when: "'Downloaded' in docker_pull.stderr or 'Pulled' in docker_pull.stderr"
 
     - name: Start Umami services
-      command: docker compose up -d
+      ansible.builtin.command: docker compose up -d
       args:
         chdir: "{{ umami_install_dir }}"
       register: docker_up
       changed_when: "'Started' in docker_up.stderr or 'Created' in docker_up.stderr"
 
     - name: Wait for Umami to be ready
-      uri:
+      ansible.builtin.uri:
         url: "http://localhost:{{ umami_port }}/api/heartbeat"
         status_code: 200
       register: result
@@ -274,7 +274,7 @@
       delay: 10
 
     - name: Display installation summary
-      debug:
+      ansible.builtin.debug:
         msg:
           - "Umami Web Analytics installation complete!"
           - "============================================"
@@ -297,6 +297,6 @@
 
   handlers:
     - name: reload_caddy
-      systemd:
+      ansible.builtin.systemd:
         name: caddy
         state: reloaded

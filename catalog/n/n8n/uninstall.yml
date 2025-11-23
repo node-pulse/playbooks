@@ -11,7 +11,7 @@
 
   pre_tasks:
     - name: Confirm uninstallation
-      pause:
+      ansible.builtin.pause:
         prompt: |
           WARNING: This will remove n8n and all associated services.
           {% if remove_data %}
@@ -28,70 +28,70 @@
 
   tasks:
     - name: Stop n8n service
-      systemd:
+      ansible.builtin.systemd:
         name: "{{ n8n_instance_name }}"
         state: stopped
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Disable n8n service
-      systemd:
+      ansible.builtin.systemd:
         name: "{{ n8n_instance_name }}"
-        enabled: no
-      ignore_errors: yes
+        enabled: false
+      ignore_errors: true
 
     - name: Stop and remove n8n containers
-      shell: |
+      ansible.builtin.shell: |
         cd {{ n8n_data_dir }}
         docker compose down -v
       args:
         chdir: "{{ n8n_data_dir }}"
-      ignore_errors: yes
+      ignore_errors: true
       when: n8n_data_dir is exists
 
     - name: Remove n8n systemd service file
-      file:
+      ansible.builtin.file:
         path: "/etc/systemd/system/{{ n8n_instance_name }}.service"
         state: absent
 
     - name: Reload systemd daemon
-      systemd:
-        daemon_reload: yes
+      ansible.builtin.systemd:
+        daemon_reload: true
 
     - name: Remove n8n Docker images
       docker_image:
         name: "{{ item }}"
         state: absent
-        force_absent: yes
+        force_absent: true
       loop:
         - "n8nio/n8n:1.120.3"
         - "n8nio/n8n:latest"
         - "postgres:16"
         - "postgres:latest"
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Remove Caddy image
-      shell: |
+      ansible.builtin.shell: |
         docker images | grep "{{ n8n_data_dir | regex_replace('/', '_') }}" | awk '{print $3}' | xargs -r docker rmi -f
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Backup credentials before removal
-      copy:
+      ansible.builtin.copy:
         src: "{{ n8n_data_dir }}/credentials.txt"
         dest: "/root/{{ n8n_instance_name }}-credentials-backup-{{ ansible_date_time.epoch }}.txt"
-        remote_src: yes
-      ignore_errors: yes
+        remote_src: true
+      ignore_errors: true
       when:
         - remove_data
         - n8n_data_dir + '/credentials.txt' is exists
 
     - name: Remove n8n data directory
-      file:
+      ansible.builtin.file:
         path: "{{ n8n_data_dir }}"
         state: absent
       when: remove_data
 
     - name: Remove Docker (if requested)
-      apt:
+      ansible.builtin.apt:
         name:
           - docker-ce
           - docker-ce-cli
@@ -99,13 +99,13 @@
           - docker-buildx-plugin
           - docker-compose-plugin
         state: absent
-        purge: yes
+        purge: true
       when:
         - remove_docker
         - ansible_pkg_mgr == "apt"
 
     - name: Remove Docker repository
-      apt_repository:
+      ansible.builtin.apt_repository:
         repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }}] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
         state: absent
       when:
@@ -113,7 +113,7 @@
         - ansible_pkg_mgr == "apt"
 
     - name: Remove Docker GPG key
-      apt_key:
+      ansible.builtin.apt_key:
         url: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
         state: absent
       when:
@@ -121,13 +121,13 @@
         - ansible_pkg_mgr == "apt"
 
     - name: Remove Docker data directory
-      file:
+      ansible.builtin.file:
         path: /var/lib/docker
         state: absent
       when: remove_docker
 
     - name: Display uninstallation summary
-      debug:
+      ansible.builtin.debug:
         msg:
           - "n8n has been uninstalled successfully!"
           - "==================== SUMMARY ================================"

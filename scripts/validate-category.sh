@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage: validate-category.sh <playbook_dir> [<playbook_dir> ...]
 
 EXIT_CODE=0
-VALID_CATEGORIES=("monitoring" "database" "search" "security" "proxy" "storage" "dev-tools")
+VALID_CATEGORIES=("monitoring" "database" "search" "security" "proxy" "storage" "dev-tools" "automation")
 
 for dir in "$@"; do
   if [ -z "$dir" ]; then

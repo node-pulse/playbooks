@@ -1,7 +1,7 @@
 ---
 - name: Install Umami Web Analytics with Nginx
   hosts: all
-  become: yes
+  become: true
   vars:
     umami_install_dir: "{{ umami_install_dir | default('/opt/umami') }}"
     umami_data_dir: "{{ umami_install_dir }}/data"
@@ -13,7 +13,7 @@
 
   tasks:
     - name: Validate required variables
-      assert:
+      ansible.builtin.assert:
         that:
           - umami_domain is defined
           - umami_domain | length > 0
@@ -21,24 +21,24 @@
         fail_msg: "Missing required variables. umami_domain is required. admin_email is required when enable_ssl is true."
 
     - name: Generate PostgreSQL password if not provided
-      set_fact:
+      ansible.builtin.set_fact:
         postgres_password: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
       when: postgres_password is not defined or postgres_password | length == 0
 
     - name: Generate application secret if not provided
-      set_fact:
+      ansible.builtin.set_fact:
         app_secret: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
       when: app_secret is not defined or app_secret | length == 0
 
     # Nginx Detection Logic
     - name: Check if system Nginx is installed
-      command: which nginx
+      ansible.builtin.command: which nginx
       register: nginx_binary
-      ignore_errors: yes
+      ignore_errors: true
       changed_when: false
 
     - name: Check if ports 80 and 443 are in use
-      shell: |
+      ansible.builtin.shell: |
         port80=$(ss -tuln | grep ':80 ' || echo "free")
         port443=$(ss -tuln | grep ':443 ' || echo "free")
         if [[ "$port80" != "free" ]] || [[ "$port443" != "free" ]]; then
@@ -50,7 +50,7 @@
       changed_when: false
 
     - name: Fail if ports are occupied and Nginx is not installed
-      fail:
+      ansible.builtin.fail:
         msg: |
           ERROR: Ports 80 and/or 443 are already in use, but Nginx is not installed.
 
@@ -65,14 +65,14 @@
         - ports_check.stdout == 'in_use'
 
     - name: Display Nginx deployment decision
-      debug:
+      ansible.builtin.debug:
         msg:
           - "Deploying with system Nginx + Certbot SSL (supports multiple applications on one server)"
           - "{{ 'Will use existing Nginx installation' if nginx_binary.rc == 0 else 'Will install Nginx from distribution repository' }}"
           - "SSL: Automatic via Certbot"
 
     - name: Install required packages
-      package:
+      ansible.builtin.package:
         name:
           - curl
           - ca-certificates
@@ -80,40 +80,40 @@
         state: present
 
     - name: Check if Docker is installed
-      command: docker --version
+      ansible.builtin.command: docker --version
       register: docker_installed
-      ignore_errors: yes
+      ignore_errors: true
       changed_when: false
 
     - name: Install Docker (Debian/Ubuntu)
       block:
         - name: Create keyrings directory
-          file:
+          ansible.builtin.file:
             path: /etc/apt/keyrings
             state: directory
             mode: '0755'
 
         - name: Add Docker GPG key
-          get_url:
+          ansible.builtin.get_url:
             url: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
             dest: /etc/apt/keyrings/docker.asc
             mode: '0644'
 
         - name: Add Docker repository
-          apt_repository:
+          ansible.builtin.apt_repository:
             repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
             state: present
             filename: docker
 
         - name: Install Docker packages
-          apt:
+          ansible.builtin.apt:
             name:
               - docker-ce
               - docker-ce-cli
               - containerd.io
               - docker-compose-plugin
             state: present
-            update_cache: yes
+            update_cache: true
       when:
         - docker_installed.rc != 0
         - ansible_os_family == "Debian"
@@ -125,12 +125,12 @@
             name: docker-ce
             description: Docker CE Stable
             baseurl: "https://download.docker.com/linux/{{ 'centos' if ansible_distribution == 'CentOS' else 'rhel' if ansible_distribution in ['RedHat', 'OracleLinux'] else ansible_distribution | lower }}/{{ ansible_distribution_major_version }}/$basearch/stable"
-            gpgcheck: yes
+            gpgcheck: true
             gpgkey: "https://download.docker.com/linux/{{ 'centos' if ansible_distribution == 'CentOS' else 'rhel' if ansible_distribution in ['RedHat', 'OracleLinux'] else ansible_distribution | lower }}/gpg"
-            enabled: yes
+            enabled: true
 
         - name: Install Docker packages
-          yum:
+          ansible.builtin.yum:
             name:
               - docker-ce
               - docker-ce-cli
@@ -142,13 +142,13 @@
         - ansible_os_family == "RedHat"
 
     - name: Start and enable Docker service
-      systemd:
+      ansible.builtin.systemd:
         name: docker
         state: started
-        enabled: yes
+        enabled: true
 
     - name: Create Umami directories
-      file:
+      ansible.builtin.file:
         path: "{{ item }}"
         state: directory
         mode: '0755'
@@ -157,35 +157,35 @@
         - "{{ umami_data_dir }}"
 
     - name: Create .env file
-      template:
+      ansible.builtin.template:
         src: templates/env.j2
         dest: "{{ umami_install_dir }}/.env"
         mode: '0600'
 
     - name: Create compose.yml
-      template:
+      ansible.builtin.template:
         src: templates/compose.yml.j2
         dest: "{{ umami_install_dir }}/compose.yml"
         mode: '0644'
 
     # System Nginx Mode - Install or use existing Nginx installation
     - name: Check if system Nginx is already installed
-      command: which nginx
+      ansible.builtin.command: which nginx
       register: system_nginx_check
-      ignore_errors: yes
+      ignore_errors: true
       changed_when: false
 
     - name: Install Nginx (Debian/Ubuntu)
-      apt:
+      ansible.builtin.apt:
         name: nginx
         state: present
-        update_cache: yes
+        update_cache: true
       when:
         - system_nginx_check.rc != 0
         - ansible_os_family == "Debian"
 
     - name: Install Nginx (RHEL/CentOS/Rocky/Alma)
-      yum:
+      ansible.builtin.yum:
         name: nginx
         state: present
       when:
@@ -193,27 +193,27 @@
         - ansible_os_family == "RedHat"
 
     - name: Start and enable Nginx service
-      systemd:
+      ansible.builtin.systemd:
         name: nginx
         state: started
-        enabled: yes
+        enabled: true
 
     - name: Create initial HTTP Nginx configuration (for Certbot validation)
-      template:
+      ansible.builtin.template:
         src: templates/nginx-http.conf.j2
         dest: /etc/nginx/sites-available/umami
         mode: '0644'
       when: ansible_os_family == "Debian"
 
     - name: Create initial HTTP Nginx configuration (for Certbot validation) - RHEL
-      template:
+      ansible.builtin.template:
         src: templates/nginx-http.conf.j2
         dest: /etc/nginx/conf.d/umami.conf
         mode: '0644'
       when: ansible_os_family == "RedHat"
 
     - name: Enable Nginx site (Debian/Ubuntu)
-      file:
+      ansible.builtin.file:
         src: /etc/nginx/sites-available/umami
         dest: /etc/nginx/sites-enabled/umami
         state: link
@@ -221,30 +221,30 @@
       notify: reload_nginx
 
     - name: Test Nginx configuration
-      command: nginx -t
+      ansible.builtin.command: nginx -t
       changed_when: false
 
     - name: Reload Nginx
-      systemd:
+      ansible.builtin.systemd:
         name: nginx
         state: reloaded
 
     - name: Pull Umami Docker images
-      command: docker compose pull
+      ansible.builtin.command: docker compose pull
       args:
         chdir: "{{ umami_install_dir }}"
       register: docker_pull
       changed_when: "'Downloaded' in docker_pull.stderr or 'Pulled' in docker_pull.stderr"
 
     - name: Start Umami services
-      command: docker compose up -d
+      ansible.builtin.command: docker compose up -d
       args:
         chdir: "{{ umami_install_dir }}"
       register: docker_up
       changed_when: "'Started' in docker_up.stderr or 'Created' in docker_up.stderr"
 
     - name: Wait for Umami to be ready
-      uri:
+      ansible.builtin.uri:
         url: "http://localhost:{{ umami_port }}/api/heartbeat"
         status_code: 200
       register: result
@@ -254,7 +254,7 @@
 
     # SSL Certificate with Certbot
     - name: Install Certbot (Debian/Ubuntu)
-      apt:
+      ansible.builtin.apt:
         name:
           - certbot
           - python3-certbot-nginx
@@ -264,7 +264,7 @@
         - ansible_os_family == "Debian"
 
     - name: Install Certbot (RHEL/Rocky/Alma)
-      yum:
+      ansible.builtin.yum:
         name:
           - certbot
           - python3-certbot-nginx
@@ -274,7 +274,7 @@
         - ansible_os_family == "RedHat"
 
     - name: Obtain SSL certificate with Certbot
-      command: >
+      ansible.builtin.command: >
         certbot --nginx
         -d {{ umami_domain }}
         --non-interactive
@@ -286,7 +286,7 @@
       changed_when: "'Successfully received certificate' in certbot_result.stdout"
 
     - name: Apply optimized HTTPS configuration
-      template:
+      ansible.builtin.template:
         src: templates/nginx-https.conf.j2
         dest: "{{ '/etc/nginx/sites-available/umami' if ansible_os_family == 'Debian' else '/etc/nginx/conf.d/umami.conf' }}"
         mode: '0644'
@@ -294,7 +294,7 @@
       notify: reload_nginx
 
     - name: Setup automatic certificate renewal
-      cron:
+      ansible.builtin.cron:
         name: "Renew Let's Encrypt certificates"
         minute: "0"
         hour: "0,12"
@@ -302,7 +302,7 @@
       when: enable_ssl
 
     - name: Display installation summary
-      debug:
+      ansible.builtin.debug:
         msg:
           - "Umami Web Analytics installation complete!"
           - "============================================"
@@ -327,6 +327,6 @@
 
   handlers:
     - name: reload_nginx
-      systemd:
+      ansible.builtin.systemd:
         name: nginx
         state: reloaded
