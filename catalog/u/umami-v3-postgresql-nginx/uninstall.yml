@@ -12,12 +12,19 @@
         path: "{{ umami_install_dir }}/compose.yml"
       register: umami_exists
 
-    - name: Stop and remove Umami containers
+    - name: Stop and remove Umami containers via Docker Compose
       ansible.builtin.command: docker compose down -v
       args:
         chdir: "{{ umami_install_dir }}"
       when: umami_exists.stat.exists
       failed_when: false
+
+    - name: Force remove Umami containers (in case of conflicts)
+      ansible.builtin.shell: |
+        docker rm -f umami-db umami-app 2>/dev/null || true
+        docker network rm umami_default 2>/dev/null || true
+      failed_when: false
+      changed_when: false
 
     - name: Remove Umami Docker images
       ansible.builtin.command: docker compose down --rmi all
