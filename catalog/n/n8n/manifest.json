@@ -23,8 +23,30 @@
 
   "structure": {
     "playbooks": {
-      "install": "install.yml",
-      "uninstall": "uninstall.yml"
+      "install": {
+        "file": "install.yml",
+        "variables": [
+          "n8n_domain",
+          "n8n_port",
+          "n8n_encryption_key",
+          "postgres_password",
+          "n8n_basic_auth_user",
+          "n8n_basic_auth_password",
+          "n8n_timezone",
+          "enable_ssl",
+          "ssl_email",
+          "n8n_data_dir",
+          "n8n_instance_name",
+          "n8n_webhook_url"
+        ]
+      },
+      "uninstall": {
+        "file": "uninstall.yml",
+        "variables": [
+          "n8n_data_dir",
+          "n8n_instance_name"
+        ]
+      }
     },
     "templates": [
       "templates/compose.yml.j2",

@@ -33,8 +33,39 @@
 
   "structure": {
     "playbooks": {
-      "install": "install.yml",
-      "uninstall": "uninstall.yml"
+      "install": {
+        "file": "install.yml",
+        "variables": [
+          "domain",
+          "pgweb_domain",
+          "postgrest_domain",
+          "auth_domain",
+          "postgres_port",
+          "postgres_user",
+          "postgres_password",
+          "postgres_db",
+          "postgrest_role",
+          "postgrest_password",
+          "postgrest_anon_role",
+          "postgrest_jwt_secret",
+          "postgrest_schemas",
+          "api_user_password",
+          "api_admin_password",
+          "authelia_admin_password",
+          "enable_ssl",
+          "admin_email",
+          "install_dir",
+          "allowed_cors_origins"
+        ]
+      },
+      "uninstall": {
+        "file": "uninstall.yml",
+        "variables": [
+          "install_dir",
+          "pgweb_domain",
+          "postgrest_domain"
+        ]
+      }
     },
     "templates": [
       "templates/compose.yml.j2",

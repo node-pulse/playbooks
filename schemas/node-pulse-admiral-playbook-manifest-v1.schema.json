@@ -124,18 +124,50 @@
       "properties": {
         "playbooks": {
           "type": "object",
-          "description": "Named playbook entry points",
+          "description": "Named playbook entry points with their configurations",
           "required": ["install", "uninstall"],
           "properties": {
             "install": {
-              "type": "string",
-              "description": "Path to install playbook (install.yml)",
-              "pattern": "^[a-zA-Z0-9_./-]+\\.ya?ml$"
+              "type": "object",
+              "description": "Install playbook configuration",
+              "required": ["file", "variables"],
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "description": "Path to install playbook file",
+                  "pattern": "^[a-zA-Z0-9_./-]+\\.ya?ml$"
+                },
+                "variables": {
+                  "type": "array",
+                  "description": "Variable names required for this playbook",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z_][a-z0-9_]*$"
+                  }
+                }
+              },
+              "additionalProperties": false
             },
             "uninstall": {
-              "type": "string",
-              "description": "Path to uninstall playbook (uninstall.yml)",
-              "pattern": "^[a-zA-Z0-9_./-]+\\.ya?ml$"
+              "type": "object",
+              "description": "Uninstall playbook configuration",
+              "required": ["file", "variables"],
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "description": "Path to uninstall playbook file",
+                  "pattern": "^[a-zA-Z0-9_./-]+\\.ya?ml$"
+                },
+                "variables": {
+                  "type": "array",
+                  "description": "Variable names required for this playbook",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z_][a-z0-9_]*$"
+                  }
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -383,5 +415,6 @@
       "format": "date-time"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$comment": "Note: Cross-field validation (ensuring playbook variables match parameter names) requires custom validation logic. See validate-manifests.py for implementation."
 }

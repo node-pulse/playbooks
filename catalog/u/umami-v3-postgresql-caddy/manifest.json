@@ -31,8 +31,26 @@
 
   "structure": {
     "playbooks": {
-      "install": "install.yml",
-      "uninstall": "uninstall.yml"
+      "install": {
+        "file": "install.yml",
+        "variables": [
+          "umami_domain",
+          "umami_port",
+          "postgres_user",
+          "postgres_password",
+          "postgres_db",
+          "app_secret",
+          "enable_ssl",
+          "admin_email",
+          "umami_install_dir"
+        ]
+      },
+      "uninstall": {
+        "file": "uninstall.yml",
+        "variables": [
+          "umami_install_dir"
+        ]
+      }
     },
     "templates": [
       "templates/compose.yml.j2",
@@ -188,6 +206,15 @@
       "description": "Email address for SSL certificate notifications (required if SSL enabled)",
       "required": false,
       "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    },
+    {
+      "name": "umami_install_dir",
+      "label": "Installation Directory",
+      "type": "string",
+      "default": "/opt/umami",
+      "description": "Directory where Umami will be installed",
+      "required": false,
+      "pattern": "^/[a-zA-Z0-9/_-]+$"
     }
   ],
 

@@ -23,8 +23,22 @@
 
   "structure": {
     "playbooks": {
-      "install": "install.yml",
-      "uninstall": "uninstall.yml"
+      "install": {
+        "file": "install.yml",
+        "variables": [
+          "bantime",
+          "findtime",
+          "maxretry",
+          "ssh_port",
+          "webhook_url",
+          "webhook_token",
+          "webhook_timeout"
+        ]
+      },
+      "uninstall": {
+        "file": "uninstall.yml",
+        "variables": []
+      }
     },
     "templates": [
       "templates/jail.local.j2",
