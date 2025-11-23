@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  openbb:
+    image: {{ openbb_image }}
+    container_name: openbb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:{{ openbb_port }}:6900"
+    volumes:
+      - {{ openbb_data_dir }}:/root/.openbb_platform
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: ["openbb-api", "--host", "0.0.0.0", "--port", "6900"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6900/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

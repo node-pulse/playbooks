@@ -1,0 +1,129 @@
+---
+- name: Uninstall OpenBB Platform API
+  hosts: all
+  become: true
+  vars:
+    openbb_install_dir: "{{ openbb_install_dir | default('/opt/openbb') }}"
+
+  tasks:
+    - name: Check if installation directory exists
+      ansible.builtin.stat:
+        path: "{{ openbb_install_dir }}"
+      register: install_dir
+
+    - name: Display message if OpenBB not found
+      ansible.builtin.debug:
+        msg: "OpenBB Platform API does not appear to be installed at {{ openbb_install_dir }}"
+      when: not install_dir.stat.exists
+
+    - name: Uninstall OpenBB Platform API
+      when: install_dir.stat.exists
+      block:
+        - name: Stop and remove OpenBB containers
+          ansible.builtin.command: docker compose -f {{ openbb_install_dir }}/compose.yml down -v
+          args:
+            chdir: "{{ openbb_install_dir }}"
+          failed_when: false
+          changed_when: true
+
+        - name: Remove OpenBB container images
+          ansible.builtin.shell: |
+            set -o pipefail
+            docker images | grep openbb | awk '{print $3}' | xargs -r docker rmi -f
+          args:
+            executable: /bin/bash
+          failed_when: false
+          changed_when: true
+
+        - name: Remove individual OpenBB containers if they exist
+          ansible.builtin.shell: |
+            set -o pipefail
+            docker ps -a | grep openbb | awk '{print $1}' | xargs -r docker rm -f
+          args:
+            executable: /bin/bash
+          failed_when: false
+          changed_when: true
+
+        - name: Determine Nginx configuration paths
+          ansible.builtin.set_fact:
+            nginx_conf_dir: "{{ '/etc/nginx/sites-available' if ansible_os_family == 'Debian' else '/etc/nginx/conf.d' }}"
+            nginx_conf_enabled: "{{ '/etc/nginx/sites-enabled' if ansible_os_family == 'Debian' else '' }}"
+            nginx_conf_file: "{{ 'openbb' if ansible_os_family == 'Debian' else 'openbb.conf' }}"
+
+        - name: Remove Nginx site symlink (Debian/Ubuntu)
+          ansible.builtin.file:
+            path: "{{ nginx_conf_enabled }}/{{ nginx_conf_file }}"
+            state: absent
+          when: ansible_os_family == "Debian"
+          notify: Reload Nginx
+
+        - name: Remove Nginx configuration
+          ansible.builtin.file:
+            path: "{{ nginx_conf_dir }}/{{ nginx_conf_file }}"
+            state: absent
+          notify: Reload Nginx
+
+        - name: Test Nginx configuration
+          ansible.builtin.command: nginx -t
+          changed_when: false
+          failed_when: false
+
+        - name: Reload Nginx
+          ansible.builtin.systemd:
+            name: nginx
+            state: reloaded
+          failed_when: false
+
+        - name: Remove Certbot certificate (if exists)
+          ansible.builtin.command: certbot delete --cert-name {{ item }}
+          loop:
+            - "{{ openbb_domain | default('openbb') }}"
+          when: openbb_domain is defined
+          failed_when: false
+          changed_when: true
+
+        - name: Prompt user about data directory removal
+          ansible.builtin.pause:
+            prompt: |
+
+              Do you want to remove the OpenBB data directory ({{ openbb_install_dir }})?
+              This will DELETE all OpenBB configuration and data.
+
+              Type 'yes' to remove, or press Enter to keep the data
+          register: remove_data_prompt
+
+        - name: Remove OpenBB installation directory
+          ansible.builtin.file:
+            path: "{{ openbb_install_dir }}"
+            state: absent
+          when: remove_data_prompt.user_input | default('') | lower == 'yes'
+
+        - name: Display data retention message
+          ansible.builtin.debug:
+            msg:
+              - "Data directory retained at: {{ openbb_install_dir }}"
+              - "To manually remove: sudo rm -rf {{ openbb_install_dir }}"
+          when: remove_data_prompt.user_input | default('') | lower != 'yes'
+
+        - name: Display uninstall complete message
+          ansible.builtin.debug:
+            msg:
+              - "=========================================="
+              - "OpenBB Platform API Uninstall Complete!"
+              - "=========================================="
+              - ""
+              - "The following have been removed:"
+              - "  - OpenBB Docker containers"
+              - "  - OpenBB Docker images"
+              - "  - Nginx configuration"
+              - "  - SSL certificates (if configured)"
+              - "{{ '  - Installation directory' if remove_data_prompt.user_input | default('') | lower == 'yes' else '' }}"
+              - ""
+              - "Docker, Nginx, and Certbot remain installed for other applications."
+
+  handlers:
+    - name: Reload Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded
+      failed_when: false

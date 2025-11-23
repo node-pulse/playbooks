@@ -5,8 +5,7 @@
   vars:
     install_dir: "{{ install_dir | default('/opt/postgresql-stack') }}"
     data_dir: "{{ install_dir }}/data"
-    pgweb_domain: "{{ pgweb_domain | default('') }}"
-    postgrest_domain: "{{ postgrest_domain | default('') }}"
+    domain: "{{ domain | default('') }}"
 
   tasks:
     - name: Check if installation directory exists
@@ -67,44 +66,20 @@
         state: absent
       when: install_dir_stat.stat.exists
 
-    - name: Remove Nginx pgweb configuration (Debian/Ubuntu)
+    - name: Remove Nginx configuration (Debian/Ubuntu)
       ansible.builtin.file:
         path: "{{ item }}"
         state: absent
       loop:
-        - /etc/nginx/sites-enabled/postgresql-stack-pgweb
-        - /etc/nginx/sites-available/postgresql-stack-pgweb
-      when: ansible_os_family == "Debian"
-      failed_when: false
-
-    - name: Remove Nginx postgrest configuration (Debian/Ubuntu)
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /etc/nginx/sites-enabled/postgresql-stack-postgrest
-        - /etc/nginx/sites-available/postgresql-stack-postgrest
-      when: ansible_os_family == "Debian"
-      failed_when: false
-
-    - name: Remove Nginx auth configuration (Debian/Ubuntu)
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /etc/nginx/sites-enabled/postgresql-stack-auth
-        - /etc/nginx/sites-available/postgresql-stack-auth
+        - /etc/nginx/sites-enabled/postgresql-stack
+        - /etc/nginx/sites-available/postgresql-stack
       when: ansible_os_family == "Debian"
       failed_when: false
 
     - name: Remove Nginx configuration (RHEL/CentOS/Rocky/Alma)
       ansible.builtin.file:
-        path: "{{ item }}"
+        path: /etc/nginx/conf.d/postgresql-stack.conf
         state: absent
-      loop:
-        - /etc/nginx/conf.d/postgresql-stack-pgweb.conf
-        - /etc/nginx/conf.d/postgresql-stack-postgrest.conf
-        - /etc/nginx/conf.d/postgresql-stack-auth.conf
       when: ansible_os_family == "RedHat"
       failed_when: false
 
@@ -121,28 +96,12 @@
       when: nginx_test.rc == 0
       failed_when: false
 
-    - name: Remove SSL certificates for pgweb
-      ansible.builtin.command: certbot delete --cert-name {{ pgweb_domain }} --non-interactive
+    - name: Remove SSL certificate
+      ansible.builtin.command: certbot delete --cert-name {{ domain }} --non-interactive
       changed_when: true
       when:
-        - pgweb_domain is defined
-        - pgweb_domain | length > 0
-      failed_when: false
-
-    - name: Remove SSL certificates for postgrest
-      ansible.builtin.command: certbot delete --cert-name {{ postgrest_domain }} --non-interactive
-      changed_when: true
-      when:
-        - postgrest_domain is defined
-        - postgrest_domain | length > 0
-      failed_when: false
-
-    - name: Remove SSL certificates for auth
-      ansible.builtin.command: certbot delete --cert-name {{ auth_domain }} --non-interactive
-      changed_when: true
-      when:
-        - auth_domain is defined
-        - auth_domain | length > 0
+        - domain is defined
+        - domain | length > 0
       failed_when: false
 
     - name: Display uninstallation summary
@@ -153,8 +112,8 @@
           - "Removed:"
           - "  - Docker containers and volumes"
           - "  - Installation directory: {{ install_dir }}"
-          - "  - Nginx configurations"
-          - "  - SSL certificates (if domains were provided)"
+          - "  - Nginx configuration"
+          - "  - SSL certificate (if domain was provided)"
           - ""
           - "NOT removed (manual cleanup required if desired):"
           - "  - Docker"

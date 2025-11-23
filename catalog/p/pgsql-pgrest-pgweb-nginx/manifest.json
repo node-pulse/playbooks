@@ -2,8 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/refs/heads/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
   "id": "pb_PgRstPgWeb",
   "name": "PostgreSQL Stack (PostgreSQL + PostgREST + pgweb + Nginx)",
-  "version": "1.1.2",
-  "description": "Complete PostgreSQL service stack with PostgreSQL 18, PostgREST RESTful API with JWT authentication, pgweb web UI protected by Authelia 2FA, and Nginx reverse proxy with automatic SSL",
+  "version": "1.2.0",
+  "description": "Complete PostgreSQL service stack with PostgreSQL 18, PostgREST RESTful API with JWT authentication, pgweb web UI protected by Authelia 2FA, and Nginx reverse proxy with path-based routing and automatic SSL",
   "author": {
     "name": "Yumin",
     "email": "yuminops@gmail.com",
@@ -30,9 +30,6 @@
         "file": "install.yml",
         "variables": [
           "domain",
-          "pgweb_domain",
-          "postgrest_domain",
-          "auth_domain",
           "postgres_port",
           "postgres_user",
           "postgres_password",
@@ -47,16 +44,14 @@
           "authelia_admin_password",
           "enable_ssl",
           "admin_email",
-          "install_dir",
-          "allowed_cors_origins"
+          "install_dir"
         ]
       },
       "uninstall": {
         "file": "uninstall.yml",
         "variables": [
           "install_dir",
-          "pgweb_domain",
-          "postgrest_domain"
+          "domain"
         ]
       }
     },
@@ -70,12 +65,8 @@
       "templates/Dockerfile.auth.j2",
       "templates/authelia-config.yml.j2",
       "templates/authelia-users.yml.j2",
-      "templates/nginx-http-postgresql-stack-pgweb.conf.j2",
-      "templates/nginx-http-postgresql-stack-postgrest.conf.j2",
-      "templates/nginx-http-postgresql-stack-auth.conf.j2",
-      "templates/nginx-https-pgweb.conf.j2",
-      "templates/nginx-https-postgrest.conf.j2",
-      "templates/nginx-https-auth.conf.j2"
+      "templates/nginx-http-postgresql-stack.conf.j2",
+      "templates/nginx-https-postgresql-stack.conf.j2"
     ],
     "files": []
   },
@@ -160,33 +151,9 @@
   "variables": [
     {
       "name": "domain",
-      "label": "Base Domain Name",
+      "label": "Domain Name",
       "type": "string",
-      "description": "Base domain for PostgreSQL service (e.g., db.example.com)",
-      "required": true,
-      "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$"
-    },
-    {
-      "name": "pgweb_domain",
-      "label": "pgweb Domain Name",
-      "type": "string",
-      "description": "Domain for pgweb web interface (e.g., pgweb.example.com)",
-      "required": true,
-      "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$"
-    },
-    {
-      "name": "postgrest_domain",
-      "label": "PostgREST API Domain Name",
-      "type": "string",
-      "description": "Domain for PostgREST API (e.g., api.example.com)",
-      "required": true,
-      "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$"
-    },
-    {
-      "name": "auth_domain",
-      "label": "Auth Service Domain Name",
-      "type": "string",
-      "description": "Domain for JWT authentication service (e.g., auth.example.com)",
+      "description": "Domain for all PostgreSQL Stack services using path-based routing (e.g., example.com). Services will be available at /pgweb, /postgrest, /auth, and /authelia paths.",
       "required": true,
       "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$"
     },
@@ -310,14 +277,6 @@
       "description": "Directory where PostgreSQL Stack will be installed",
       "required": false,
       "pattern": "^/[a-zA-Z0-9/_-]+$"
-    },
-    {
-      "name": "allowed_cors_origins",
-      "label": "Allowed CORS Origins (PostgREST API)",
-      "type": "string",
-      "default": "",
-      "description": "Comma-separated list of allowed origins for cross-origin requests to PostgREST API. Leave empty (default) to block all cross-origin requests for maximum security. Example: https://app.example.com,https://admin.example.com",
-      "required": false
     }
   ],
   "health_checks": [
@@ -369,8 +328,8 @@
     "Creates PostgREST API with JWT authentication accessible via HTTPS",
     "Builds and deploys custom JWT authentication service",
     "Deploys Authelia for 2FA protection of pgweb",
-    "Installs or configures Nginx as reverse proxy",
-    "Installs Certbot and obtains SSL certificates from Let's Encrypt (3 domains)",
+    "Installs or configures Nginx as reverse proxy with path-based routing",
+    "Installs Certbot and obtains SSL certificate from Let's Encrypt (1 domain)",
     "Opens ports 80, 443, and 5432 for access",
     "Stores database data in /opt/postgresql-stack/data directory",
     "May modify Nginx configuration in /etc/nginx/"

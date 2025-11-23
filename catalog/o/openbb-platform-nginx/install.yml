@@ -1,0 +1,337 @@
+---
+- name: Install OpenBB Platform API with Nginx
+  hosts: all
+  become: true
+  vars:
+    openbb_install_dir: "{{ openbb_install_dir | default('/opt/openbb') }}"
+    openbb_data_dir: "{{ openbb_install_dir }}/data"
+    openbb_port: "{{ openbb_port | default(6900) }}"
+    enable_ssl: "{{ enable_ssl | default(true) }}"
+    openbb_image: "ghcr.io/openbb-finance/openbb-platform:latest"
+
+  tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - openbb_domain is defined
+          - openbb_domain | length > 0
+          - enable_ssl == false or (admin_email is defined and admin_email | length > 0)
+        fail_msg: "Missing required variables. openbb_domain is required. admin_email is required when enable_ssl is true."
+
+    # Nginx Detection Logic
+    - name: Check if system Nginx is installed
+      ansible.builtin.command: which nginx
+      register: nginx_binary
+      failed_when: false
+      changed_when: false
+
+    - name: Check if ports 80 and 443 are in use
+      ansible.builtin.shell: |
+        set -o pipefail
+        port80=$(ss -tuln | grep ':80 ' || echo "free")
+        port443=$(ss -tuln | grep ':443 ' || echo "free")
+        if [[ "$port80" != "free" ]] || [[ "$port443" != "free" ]]; then
+          echo "in_use"
+        else
+          echo "free"
+        fi
+      register: ports_check
+      changed_when: false
+
+    - name: Fail if ports are occupied and Nginx is not installed
+      ansible.builtin.fail:
+        msg: |
+          ERROR: Ports 80 and/or 443 are already in use, but Nginx is not installed.
+
+          This playbook uses system Nginx for multi-app support.
+          Options:
+          1. Free up ports 80/443 and re-run (playbook will install system Nginx)
+          2. Install Nginx manually first
+      when:
+        - nginx_binary.rc != 0
+        - ports_check.stdout == 'in_use'
+
+    - name: Display Nginx deployment decision
+      ansible.builtin.debug:
+        msg:
+          - "Deploying OpenBB Platform API with system Nginx + Certbot SSL"
+          - "{{ 'Will use existing Nginx installation' if nginx_binary.rc == 0 else 'Will install Nginx from distribution repository' }}"
+          - "SSL: Automatic via Certbot"
+
+    - name: Install required packages
+      ansible.builtin.package:
+        name:
+          - curl
+          - ca-certificates
+          - gnupg
+        state: present
+
+    - name: Check if Docker is installed
+      ansible.builtin.command: docker --version
+      register: docker_installed
+      failed_when: false
+      changed_when: false
+
+    - name: Install Docker (Debian/Ubuntu)
+      block:
+        - name: Create keyrings directory
+          ansible.builtin.file:
+            path: /etc/apt/keyrings
+            state: directory
+            mode: '0755'
+
+        - name: Add Docker GPG key
+          ansible.builtin.get_url:
+            url: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
+            dest: /etc/apt/keyrings/docker.asc
+            mode: '0644'
+
+        - name: Add Docker repository
+          ansible.builtin.apt_repository:
+            repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
+            state: present
+
+        - name: Install Docker packages
+          ansible.builtin.apt:
+            name:
+              - docker-ce
+              - docker-ce-cli
+              - containerd.io
+              - docker-buildx-plugin
+              - docker-compose-plugin
+            state: present
+            update_cache: true
+      when:
+        - docker_installed.rc != 0
+        - ansible_os_family == "Debian"
+
+    - name: Install Docker (RHEL/Rocky/Alma/Oracle)
+      block:
+        - name: Add Docker repository
+          ansible.builtin.yum_repository:
+            name: docker-ce
+            description: Docker CE Repository
+            baseurl: "https://download.docker.com/linux/{{ 'rhel' if ansible_distribution in ['RedHat', 'OracleLinux'] else 'centos' }}/{{ ansible_distribution_major_version }}/$basearch/stable"
+            gpgcheck: true
+            gpgkey: "https://download.docker.com/linux/{{ 'rhel' if ansible_distribution in ['RedHat', 'OracleLinux'] else 'centos' }}/gpg"
+            enabled: true
+
+        - name: Install Docker packages
+          ansible.builtin.yum:
+            name:
+              - docker-ce
+              - docker-ce-cli
+              - containerd.io
+              - docker-buildx-plugin
+              - docker-compose-plugin
+            state: present
+      when:
+        - docker_installed.rc != 0
+        - ansible_os_family == "RedHat"
+
+    - name: Install Docker (Amazon Linux)
+      block:
+        - name: Install Docker
+          ansible.builtin.yum:
+            name:
+              - docker
+            state: present
+
+        - name: Install Docker Compose plugin
+          ansible.builtin.get_url:
+            url: "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-{{ 'x86_64' if ansible_architecture == 'x86_64' else 'aarch64' }}"
+            dest: /usr/local/bin/docker-compose
+            mode: '0755'
+      when:
+        - docker_installed.rc != 0
+        - ansible_distribution == "Amazon"
+
+    - name: Start and enable Docker
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Install Nginx if not present (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+        update_cache: true
+      when:
+        - nginx_binary.rc != 0
+        - ansible_os_family == "Debian"
+
+    - name: Install Nginx if not present (RHEL/Rocky/Alma/Oracle)
+      ansible.builtin.yum:
+        name: nginx
+        state: present
+      when:
+        - nginx_binary.rc != 0
+        - ansible_os_family == "RedHat"
+
+    - name: Install Nginx if not present (Amazon Linux)
+      ansible.builtin.yum:
+        name: nginx
+        state: present
+      when:
+        - nginx_binary.rc != 0
+        - ansible_distribution == "Amazon"
+
+    - name: Start and enable Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: started
+        enabled: true
+
+    - name: Create OpenBB installation directory
+      ansible.builtin.file:
+        path: "{{ openbb_install_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Create OpenBB data directory for persistent storage
+      ansible.builtin.file:
+        path: "{{ openbb_data_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Deploy docker-compose.yml
+      ansible.builtin.template:
+        src: templates/compose.yml.j2
+        dest: "{{ openbb_install_dir }}/compose.yml"
+        mode: '0644'
+
+    - name: Check if OpenBB container is already running
+      ansible.builtin.command: docker ps -q -f name=openbb
+      register: openbb_running
+      changed_when: false
+
+    - name: Stop existing OpenBB container if running
+      ansible.builtin.command: docker compose -f {{ openbb_install_dir }}/compose.yml down
+      args:
+        chdir: "{{ openbb_install_dir }}"
+      when: openbb_running.stdout | length > 0
+
+    - name: Pull OpenBB Platform API image
+      ansible.builtin.command: docker compose -f {{ openbb_install_dir }}/compose.yml pull
+      args:
+        chdir: "{{ openbb_install_dir }}"
+      changed_when: true
+
+    - name: Start OpenBB Platform API
+      ansible.builtin.command: docker compose -f {{ openbb_install_dir }}/compose.yml up -d
+      args:
+        chdir: "{{ openbb_install_dir }}"
+      changed_when: true
+
+    - name: Wait for OpenBB API to be ready
+      ansible.builtin.wait_for:
+        port: "{{ openbb_port }}"
+        delay: 5
+        timeout: 60
+
+    - name: Determine Nginx configuration directory
+      ansible.builtin.set_fact:
+        nginx_conf_dir: "{{ '/etc/nginx/sites-available' if ansible_os_family == 'Debian' else '/etc/nginx/conf.d' }}"
+        nginx_conf_enabled: "{{ '/etc/nginx/sites-enabled' if ansible_os_family == 'Debian' else '' }}"
+        nginx_conf_file: "{{ 'openbb' if ansible_os_family == 'Debian' else 'openbb.conf' }}"
+
+    - name: Deploy Nginx HTTP configuration (initial)
+      ansible.builtin.template:
+        src: templates/nginx-http.conf.j2
+        dest: "{{ nginx_conf_dir }}/{{ nginx_conf_file }}"
+        mode: '0644'
+      notify: Reload Nginx
+
+    - name: Enable Nginx site (Debian/Ubuntu)
+      ansible.builtin.file:
+        src: "{{ nginx_conf_dir }}/{{ nginx_conf_file }}"
+        dest: "{{ nginx_conf_enabled }}/{{ nginx_conf_file }}"
+        state: link
+      when: ansible_os_family == "Debian"
+      notify: Reload Nginx
+
+    - name: Test Nginx configuration
+      ansible.builtin.command: nginx -t
+      changed_when: false
+
+    - name: Reload Nginx to apply HTTP configuration
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded
+
+    - name: Install Certbot and Nginx plugin (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+      when:
+        - enable_ssl
+        - ansible_os_family == "Debian"
+
+    - name: Install Certbot and Nginx plugin (RHEL/Rocky/Alma/Oracle)
+      ansible.builtin.yum:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+      when:
+        - enable_ssl
+        - ansible_os_family == "RedHat"
+
+    - name: Install Certbot and Nginx plugin (Amazon Linux)
+      ansible.builtin.yum:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+      when:
+        - enable_ssl
+        - ansible_distribution == "Amazon"
+
+    - name: Obtain SSL certificate with Certbot
+      ansible.builtin.command: >
+        certbot --nginx
+        -d {{ openbb_domain }}
+        --non-interactive
+        --agree-tos
+        --email {{ admin_email }}
+        --redirect
+      when: enable_ssl
+      changed_when: true
+      register: certbot_result
+      failed_when: certbot_result.rc != 0
+
+    - name: Setup Certbot auto-renewal
+      ansible.builtin.cron:
+        name: "Certbot renewal"
+        minute: "0"
+        hour: "0,12"
+        job: "certbot renew --quiet"
+      when: enable_ssl
+
+    - name: Display success message
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "OpenBB Platform API Installation Complete!"
+          - "=========================================="
+          - ""
+          - "Access OpenBB API at: {{ 'https' if enable_ssl else 'http' }}://{{ openbb_domain }}"
+          - "API Documentation: {{ 'https' if enable_ssl else 'http' }}://{{ openbb_domain }}/docs"
+          - ""
+          - "Installation Directory: {{ openbb_install_dir }}"
+          - "Data Directory: {{ openbb_data_dir }}"
+          - ""
+          - "To view logs: docker compose -f {{ openbb_install_dir }}/compose.yml logs -f"
+          - "To restart: docker compose -f {{ openbb_install_dir }}/compose.yml restart"
+          - ""
+          - "IMPORTANT: Configure your API keys and credentials through the API interface"
+          - "Visit the documentation at https://docs.openbb.co for setup guides"
+
+  handlers:
+    - name: Reload Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded
