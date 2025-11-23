@@ -3,7 +3,7 @@
 
   "id": "pb_PgRstPgWeb",
   "name": "PostgreSQL Stack (PostgreSQL + PostgREST + pgweb + Nginx)",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Complete PostgreSQL service stack with PostgreSQL 18, PostgREST RESTful API with JWT authentication, pgweb web UI protected by Authelia 2FA, and Nginx reverse proxy with automatic SSL",
 
   "author": {
@@ -293,9 +293,9 @@
     {
       "name": "allowed_cors_origins",
       "label": "Allowed CORS Origins (PostgREST API)",
-      "type": "array",
-      "default": [],
-      "description": "List of allowed origins for cross-origin requests to PostgREST API. Leave empty (default) to block all cross-origin requests for maximum security. Example: ['https://app.example.com', 'https://admin.example.com']",
+      "type": "string",
+      "default": "",
+      "description": "Comma-separated list of allowed origins for cross-origin requests to PostgREST API. Leave empty (default) to block all cross-origin requests for maximum security. Example: https://app.example.com,https://admin.example.com",
       "required": false
     }
   ],
@@ -360,5 +360,5 @@
   "license": "MIT",
 
   "created_at": "2025-11-19T00:00:00Z",
-  "updated_at": "2025-11-19T00:00:00Z"
+  "updated_at": "2025-11-22T00:00:00Z"
 }

@@ -106,7 +106,7 @@ Internet → Nginx (80/443)
 | `authelia_admin_password` | password | auto-generated | Authelia admin password |
 | `enable_ssl` | boolean | `true` | Automatically obtain SSL certificate via Certbot |
 | `install_dir` | string | `/opt/postgresql-stack` | Installation directory |
-| `allowed_cors_origins` | array | `[]` (empty) | Allowed origins for CORS (PostgREST API). Empty = no cross-origin requests (most secure) |
+| `allowed_cors_origins` | string | `""` (empty) | Comma-separated allowed origins for CORS (PostgREST API). Empty = no cross-origin requests (most secure) |
 
 ## Usage
 
@@ -363,7 +363,7 @@ ansible-playbook -i inventory install.yml \
   -e postgrest_domain=api.example.com \
   -e auth_domain=auth.example.com \
   -e admin_email=admin@example.com \
-  -e "allowed_cors_origins=['https://app.example.com','https://admin.example.com']"
+  -e "allowed_cors_origins=https://app.example.com,https://admin.example.com"
 ```
 
 **Security Notes**:

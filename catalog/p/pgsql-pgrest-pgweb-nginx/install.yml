@@ -16,8 +16,9 @@
     postgrest_anon_role: "{{ postgrest_anon_role | default('anon') }}"
     enable_ssl: "{{ enable_ssl | default(true) }}"
     # CORS origins for PostgREST API (empty = no cross-origin access, most secure)
-    # Example: allowed_cors_origins: ['https://example.com', 'https://app.example.com']
-    allowed_cors_origins: "{{ allowed_cors_origins | default([]) }}"
+    # Example: allowed_cors_origins: "https://example.com,https://app.example.com"
+    # Convert comma-separated string to array, or use empty array if not provided
+    allowed_cors_origins: "{{ (allowed_cors_origins | default('') | trim).split(',') | reject('equalto', '') | list if (allowed_cors_origins | default('') | trim) else [] }}"
 
   tasks:
     - name: Validate required variables
