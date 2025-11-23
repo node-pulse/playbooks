@@ -8,6 +8,9 @@
     domain: "{{ domain | default('') }}"
 
   tasks:
+    - name: Set project name based on install directory
+      ansible.builtin.set_fact:
+        project_name: "{{ install_dir | basename | regex_replace('[^a-zA-Z0-9]', '') }}"
     - name: Check if installation directory exists
       ansible.builtin.stat:
         path: "{{ install_dir }}"
@@ -71,14 +74,14 @@
         path: "{{ item }}"
         state: absent
       loop:
-        - /etc/nginx/sites-enabled/postgresql-stack
-        - /etc/nginx/sites-available/postgresql-stack
+        - /etc/nginx/sites-enabled/{{ project_name }}
+        - /etc/nginx/sites-available/{{ project_name }}
       when: ansible_os_family == "Debian"
       failed_when: false
 
     - name: Remove Nginx configuration (RHEL/CentOS/Rocky/Alma)
       ansible.builtin.file:
-        path: /etc/nginx/conf.d/postgresql-stack.conf
+        path: /etc/nginx/conf.d/{{ project_name }}.conf
         state: absent
       when: ansible_os_family == "RedHat"
       failed_when: false

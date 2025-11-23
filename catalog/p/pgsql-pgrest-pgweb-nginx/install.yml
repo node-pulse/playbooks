@@ -28,6 +28,10 @@
       ansible.builtin.set_fact:
         data_dir: "{{ install_dir }}/data"
 
+    - name: Set project name based on install directory
+      ansible.builtin.set_fact:
+        project_name: "{{ install_dir | basename | regex_replace('[^a-zA-Z0-9]', '') }}"
+
     - name: Validate required variables
       ansible.builtin.assert:
         that:
@@ -297,21 +301,21 @@
     - name: Create initial HTTP Nginx configuration (for Certbot validation)
       ansible.builtin.template:
         src: "templates/nginx-http-postgresql-stack.conf.j2"
-        dest: "/etc/nginx/sites-available/postgresql-stack"
+        dest: "/etc/nginx/sites-available/{{ project_name }}"
         mode: '0644'
       when: ansible_os_family == "Debian"
 
     - name: Create initial HTTP Nginx configuration (for Certbot validation) - RHEL
       ansible.builtin.template:
         src: "templates/nginx-http-postgresql-stack.conf.j2"
-        dest: "/etc/nginx/conf.d/postgresql-stack.conf"
+        dest: "/etc/nginx/conf.d/{{ project_name }}.conf"
         mode: '0644'
       when: ansible_os_family == "RedHat"
 
     - name: Enable Nginx site (Debian/Ubuntu)
       ansible.builtin.file:
-        src: "/etc/nginx/sites-available/postgresql-stack"
-        dest: "/etc/nginx/sites-enabled/postgresql-stack"
+        src: "/etc/nginx/sites-available/{{ project_name }}"
+        dest: "/etc/nginx/sites-enabled/{{ project_name }}"
         state: link
       when: ansible_os_family == "Debian"
       notify: Reload Nginx
@@ -340,7 +344,7 @@
       changed_when: "'Started' in docker_up.stderr or 'Created' in docker_up.stderr"
 
     - name: Wait for PostgreSQL to be ready
-      ansible.builtin.shell: docker exec postgresql-stack-db pg_isready -U {{ postgres_user }}
+      ansible.builtin.shell: docker exec {{ project_name }}-db pg_isready -U {{ postgres_user }}
       changed_when: false
       register: result
       until: result.rc == 0
@@ -348,7 +352,7 @@
       delay: 5
 
     - name: Initialize PostgREST roles in database
-      ansible.builtin.shell: docker exec -i postgresql-stack-db psql -U {{ postgres_user }} -d {{ postgres_db }} < {{ install_dir }}/init-postgrest.sql
+      ansible.builtin.shell: docker exec -i {{ project_name }}-db psql -U {{ postgres_user }} -d {{ postgres_db }} < {{ install_dir }}/init-postgrest.sql
       register: init_result
       changed_when: "'CREATE ROLE' in init_result.stdout"
 
@@ -424,7 +428,7 @@
     - name: Apply optimized HTTPS configuration
       ansible.builtin.template:
         src: templates/nginx-https-postgresql-stack.conf.j2
-        dest: "{{ '/etc/nginx/sites-available/postgresql-stack' if ansible_os_family == 'Debian' else '/etc/nginx/conf.d/postgresql-stack.conf' }}"
+        dest: "{{ '/etc/nginx/sites-available/' + project_name if ansible_os_family == 'Debian' else '/etc/nginx/conf.d/' + project_name + '.conf' }}"
         mode: '0644'
       when: enable_ssl
       notify: Reload Nginx

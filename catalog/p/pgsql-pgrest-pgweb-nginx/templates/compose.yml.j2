@@ -3,7 +3,7 @@ version: '3'
 services:
   db:
     image: postgres:18.1-alpine
-    container_name: postgresql-stack-db
+    container_name: {{ project_name }}-db
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -21,7 +21,7 @@ services:
 
   postgrest:
     image: postgrest/postgrest:v12.2.3
-    container_name: postgresql-stack-postgrest
+    container_name: {{ project_name }}-postgrest
     ports:
       - "127.0.0.1:{{ postgrest_port }}:3000"  # Bind to localhost only - only accessible via Nginx
     environment:
@@ -44,7 +44,7 @@ services:
 
   pgweb:
     image: sosedoff/pgweb:0.16.2
-    container_name: postgresql-stack-pgweb
+    container_name: {{ project_name }}-pgweb
     ports:
       - "127.0.0.1:{{ pgweb_port }}:8081"  # Bind to localhost only - only accessible via Nginx + Authelia 2FA
     environment:
@@ -64,7 +64,7 @@ services:
     build:
       context: {{ install_dir }}
       dockerfile: Dockerfile.auth
-    container_name: postgresql-stack-auth
+    container_name: {{ project_name }}-auth
     ports:
       - "127.0.0.1:{{ auth_port }}:5000"  # Bind to localhost only - only accessible via Nginx
     environment:
@@ -82,7 +82,7 @@ services:
 
   authelia:
     image: authelia/authelia:4.38.16
-    container_name: postgresql-stack-authelia
+    container_name: {{ project_name }}-authelia
     ports:
       - "127.0.0.1:{{ authelia_port }}:9091"  # Bind to localhost only - only accessible via Nginx
     volumes:

@@ -25,8 +25,8 @@ server {
     add_header X-XSS-Protection "1; mode=block" always;
 
     # Logging
-    access_log /var/log/nginx/postgresql-stack-access.log;
-    error_log /var/log/nginx/postgresql-stack-error.log;
+    access_log /var/log/nginx/{{ project_name }}-access.log;
+    error_log /var/log/nginx/{{ project_name }}-error.log;
 
     # Authelia authentication endpoint (internal only)
     location /authelia-verify {
