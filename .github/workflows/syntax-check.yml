@@ -38,10 +38,8 @@ jobs:
           # On manual trigger, validate ALL playbooks
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "Manual trigger detected - validating ALL playbooks"
-            all_dirs=$(find catalog -mindepth 2 -maxdepth 2 -type d | sort)
-            echo "dirs<<EOF" >> $GITHUB_OUTPUT
-            echo "$all_dirs" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            all_dirs=$(find catalog -mindepth 2 -maxdepth 2 -type d | sort | tr '\n' ' ')
+            echo "dirs=$all_dirs" >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -54,13 +52,11 @@ jobs:
             HEAD_REF="${{ github.sha }}"
           fi
 
-          # Find changed playbooks
-          changed_dirs=$(./scripts/find-changed-playbooks.sh "$BASE_REF" "$HEAD_REF" || true)
+          # Find changed playbooks and convert newlines to spaces
+          changed_dirs=$(./scripts/find-changed-playbooks.sh "$BASE_REF" "$HEAD_REF" | tr '\n' ' ' || true)
 
-          # Export as multiline output
-          echo "dirs<<EOF" >> $GITHUB_OUTPUT
-          echo "$changed_dirs" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Export as single-line space-separated output
+          echo "dirs=$changed_dirs" >> $GITHUB_OUTPUT
 
       - name: Check if any playbooks to validate
         if: steps.changes.outputs.dirs == ''
