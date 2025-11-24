@@ -234,12 +234,13 @@
         mode: '0644'
       register: auth_dockerfile_updated
 
-    # Update Nginx configuration
+    # Update Nginx configuration (force: yes to always sync latest without checksum)
     - name: Update Nginx HTTPS configuration (Debian/Ubuntu)
       ansible.builtin.template:
         src: templates/nginx-https-postgresql-stack.conf.j2
         dest: "/etc/nginx/sites-available/{{ project_name }}"
         mode: '0644'
+        force: yes
       when:
         - enable_ssl
         - ansible_os_family == "Debian"
@@ -250,6 +251,7 @@
         src: templates/nginx-https-postgresql-stack.conf.j2
         dest: "/etc/nginx/conf.d/{{ project_name }}.conf"
         mode: '0644'
+        force: yes
       when:
         - enable_ssl
         - ansible_os_family == "RedHat"
@@ -260,6 +262,7 @@
         src: templates/nginx-http-postgresql-stack.conf.j2
         dest: "/etc/nginx/sites-available/{{ project_name }}"
         mode: '0644'
+        force: yes
       when:
         - not enable_ssl
         - ansible_os_family == "Debian"
@@ -270,6 +273,7 @@
         src: templates/nginx-http-postgresql-stack.conf.j2
         dest: "/etc/nginx/conf.d/{{ project_name }}.conf"
         mode: '0644'
+        force: yes
       when:
         - not enable_ssl
         - ansible_os_family == "RedHat"
