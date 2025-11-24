@@ -55,6 +55,8 @@ server {
         proxy_set_header Accept-Encoding "";
 
         # Rewrite base href so relative asset paths resolve correctly
+        # Authelia may return localhost or 127.0.0.1 depending on how it's accessed
+        sub_filter '<base href="http://127.0.0.1:{{ authelia_port }}/"' '<base href="{{ "https" if enable_ssl else "http" }}://{{ domain }}{{ authelia_path }}/"';
         sub_filter '<base href="http://localhost:{{ authelia_port }}/"' '<base href="{{ "https" if enable_ssl else "http" }}://{{ domain }}{{ authelia_path }}/"';
         sub_filter_once on;
         sub_filter_types text/html;
