@@ -51,8 +51,11 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
 
-        # Rewrite base href in HTML responses to use the correct path
-        sub_filter '<base href="http://localhost:{{ authelia_port }}/"' '<base href="https://$host{{ authelia_path }}/"';
+        # Disable compression from upstream to allow sub_filter to work
+        proxy_set_header Accept-Encoding "";
+
+        # Rewrite base href so relative asset paths resolve correctly
+        sub_filter '<base href="http://localhost:{{ authelia_port }}/"' '<base href="{{ "https" if enable_ssl else "http" }}://{{ domain }}{{ authelia_path }}/"';
         sub_filter_once on;
         sub_filter_types text/html;
     }
