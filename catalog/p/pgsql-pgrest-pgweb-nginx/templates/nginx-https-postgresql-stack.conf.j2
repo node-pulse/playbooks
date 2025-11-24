@@ -119,6 +119,30 @@ server {
         return 302 https://{{ domain }}{{ authelia_path }}?rd=$scheme://$http_host$request_uri;
     }
 
+    # pgweb static assets - serve without auth when referred from Authelia
+    # pgweb generates URLs with /static/ prefix, need to proxy to /pgweb/static/
+    location /static/ {
+        # Allow static assets to be loaded (required for pgweb when accessed via /pgweb/)
+        proxy_pass http://localhost:{{ pgweb_port }}/static/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Cache static assets
+        proxy_cache_valid 200 1d;
+        add_header Cache-Control "public, max-age=86400";
+    }
+
+    # pgweb manifest.json - serve without auth
+    location = /manifest.json {
+        proxy_pass http://localhost:{{ pgweb_port }}/manifest.json;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     # Root location - redirect to pgweb
     location = / {
         return 302 $scheme://$host{{ pgweb_path }}/;
