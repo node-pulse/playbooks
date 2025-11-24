@@ -3,8 +3,7 @@
 # Reference: https://www.authelia.com/configuration/prologue/introduction/
 
 server:
-  address: 'tcp://0.0.0.0:9091'
-  path: '{{ authelia_path }}'
+  address: 'tcp://0.0.0.0:9091/{{ authelia_path | regex_replace("^/", "") }}/'
   endpoints:
     authz:
       forward-auth:
