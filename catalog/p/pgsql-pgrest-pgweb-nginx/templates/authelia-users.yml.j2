@@ -1,4 +1,3 @@
-#jinja2: variable_start_string: '[%', variable_end_string: '%]'
 ---
 # Authelia Users Database
 # Reference: https://www.authelia.com/configuration/first-factor/file/
@@ -6,7 +5,7 @@
 users:
   admin:
     displayname: Administrator
-    password: '[% authelia_admin_password_hash %]'
-    email: [% admin_email | default('admin@localhost') %]
+    password: "{{ authelia_admin_password_hash }}"
+    email: "{{ admin_email | default('admin@localhost') }}"
     groups:
       - admins
