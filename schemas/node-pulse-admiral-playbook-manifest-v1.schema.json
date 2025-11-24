@@ -163,6 +163,27 @@
                 }
               },
               "additionalProperties": false
+            },
+            "update": {
+              "type": "object",
+              "description": "Update playbook configuration (optional - for playbooks that support in-place updates)",
+              "required": ["file", "variables"],
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "description": "Path to update playbook file",
+                  "pattern": "^[a-zA-Z0-9_./-]+\\.ya?ml$"
+                },
+                "variables": {
+                  "type": "array",
+                  "description": "Variable names required for this playbook",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z_][a-z0-9_]*$"
+                  }
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false

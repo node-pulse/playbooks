@@ -17,9 +17,10 @@ for dir in "$@"; do
     continue
   fi
 
-  # Get install and uninstall playbook files
+  # Get install, uninstall, and update playbook files
   install_file=$(jq -r '.structure.playbooks.install.file' "$manifest_file" 2>/dev/null || echo "")
   uninstall_file=$(jq -r '.structure.playbooks.uninstall.file' "$manifest_file" 2>/dev/null || echo "")
+  update_file=$(jq -r '.structure.playbooks.update.file // empty' "$manifest_file" 2>/dev/null || echo "")
 
   # Lint install playbook
   if [ -n "$install_file" ] && [ "$install_file" != "null" ] && [ -f "$dir/$install_file" ]; then
@@ -45,6 +46,27 @@ for dir in "$@"; do
   # Lint uninstall playbook
   if [ -n "$uninstall_file" ] && [ "$uninstall_file" != "null" ] && [ -f "$dir/$uninstall_file" ]; then
     playbook_file="$dir/$uninstall_file"
+    echo "::group::Running ansible-lint on $playbook_file"
+
+    # Run ansible-lint and capture exit code
+    set +e
+    ansible-lint "$playbook_file"
+    lint_exit_code=$?
+    set -e
+
+    if [ $lint_exit_code -ne 0 ]; then
+      echo "::error file=$playbook_file::ansible-lint found violations in $playbook_file"
+      EXIT_CODE=1
+    else
+      echo "✅ No ansible-lint issues in $playbook_file"
+    fi
+
+    echo "::endgroup::"
+  fi
+
+  # Lint update playbook (optional)
+  if [ -n "$update_file" ] && [ "$update_file" != "null" ] && [ -f "$dir/$update_file" ]; then
+    playbook_file="$dir/$update_file"
     echo "::group::Running ansible-lint on $playbook_file"
 
     # Run ansible-lint and capture exit code
