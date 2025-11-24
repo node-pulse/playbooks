@@ -351,19 +351,19 @@
     - name: Check for existing containers
       ansible.builtin.shell: |
         set -o pipefail
-        docker ps -a --format '{{`{{.Names}}`}}' | grep -E '^({{ project_name }}-db|{{ project_name }}-postgrest|{{ project_name }}-pgweb|{{ project_name }}-auth|{{ project_name }}-authelia)$' || true
+        docker ps -a --format '{{ '{{' }}.Names{{ '}}' }}' | grep -E '^({{ project_name }}-db|{{ project_name }}-postgrest|{{ project_name }}-pgweb|{{ project_name }}-auth|{{ project_name }}-authelia)$' || true
       register: existing_containers
       changed_when: false
 
     - name: Check for existing network
       ansible.builtin.shell: |
         set -o pipefail
-        docker network ls --format '{{`{{.Name}}`}}' | grep -E '^{{ project_name }}_default$' || true
+        docker network ls --format '{{ '{{' }}.Name{{ '}}' }}' | grep -E '^{{ project_name }}_default$' || true
       register: existing_network
       changed_when: false
 
     - name: Fail if containers or network already exist
-      fail:
+      ansible.builtin.fail:
         msg: |
           ERROR: Existing containers or network detected for project '{{ project_name }}'.
 
