@@ -3,15 +3,11 @@
 # Reference: https://www.authelia.com/configuration/prologue/introduction/
 
 server:
-  address: 'tcp://0.0.0.0:9091/{{ authelia_path | regex_replace("^/", "") }}/'
+  address: 'tcp://0.0.0.0:9091'
   endpoints:
     authz:
       forward-auth:
         implementation: ForwardAuth
-  headers:
-    # Custom CSP that allows Authelia to work with browser extensions and Cloudflare
-    # The ${NONCE} placeholder is replaced with the actual nonce by Authelia
-    csp_template: "default-src 'self'; frame-src 'none'; object-src 'none'; style-src 'self' 'nonce-${NONCE}' 'unsafe-inline'; script-src 'self' 'nonce-${NONCE}'; frame-ancestors 'none'; base-uri 'self'"
 
 log:
   level: info
