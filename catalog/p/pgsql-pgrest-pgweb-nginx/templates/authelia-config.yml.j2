@@ -9,6 +9,12 @@ server:
     authz:
       forward-auth:
         implementation: ForwardAuth
+  # Trust nginx reverse proxy to provide correct X-Forwarded-* headers
+  trusted_proxies:
+    - '127.0.0.1/32'
+    - '10.0.0.0/8'
+    - '172.16.0.0/12'
+    - '192.168.0.0/16'
   headers:
     # Custom CSP that allows Authelia to work with browser extensions and Cloudflare
     # The ${NONCE} placeholder is replaced with the actual nonce by Authelia
