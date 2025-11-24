@@ -9,12 +9,6 @@ server:
     authz:
       forward-auth:
         implementation: ForwardAuth
-  # Trust nginx reverse proxy to provide correct X-Forwarded-* headers
-  trusted_proxies:
-    - '127.0.0.1/32'
-    - '10.0.0.0/8'
-    - '172.16.0.0/12'
-    - '192.168.0.0/16'
   headers:
     # Custom CSP that allows Authelia to work with browser extensions and Cloudflare
     # The ${NONCE} placeholder is replaced with the actual nonce by Authelia
@@ -25,9 +19,10 @@ log:
 
 theme: auto
 
-jwt_secret: {{ authelia_jwt_secret }}
-
-default_redirection_url: {{ 'https' if enable_ssl else 'http' }}://{{ domain }}{{ pgweb_path }}/
+# JWT secret for password reset tokens
+identity_validation:
+  reset_password:
+    jwt_secret: {{ authelia_jwt_secret }}
 
 totp:
   issuer: {{ domain }}
@@ -60,7 +55,10 @@ session:
   secret: {{ authelia_session_secret }}
   expiration: 1h
   inactivity: 5m
-  domain: {{ domain }}
+  cookies:
+    - domain: {{ domain }}
+      authelia_url: {{ 'https' if enable_ssl else 'http' }}://{{ domain }}{{ authelia_path }}/
+      default_redirection_url: {{ 'https' if enable_ssl else 'http' }}://{{ domain }}{{ pgweb_path }}/
 
 regulation:
   max_retries: 5
