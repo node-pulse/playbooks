@@ -61,16 +61,15 @@ server {
         return 301 $scheme://$host{{ authelia_path }}/;
     }
 
-    # Authelia static assets - Authelia generates URLs without subpath prefix
-    # so we proxy /static/ and /manifest.json to Authelia's subpath
+    # Authelia static assets - Authelia serves these at root path regardless of subpath config
     location /static/ {
-        proxy_pass http://127.0.0.1:{{ authelia_port }}{{ authelia_path }}/static/;
+        proxy_pass http://127.0.0.1:{{ authelia_port }}/static/;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location = /manifest.json {
-        proxy_pass http://127.0.0.1:{{ authelia_port }}{{ authelia_path }}/manifest.json;
+        proxy_pass http://127.0.0.1:{{ authelia_port }}/manifest.json;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
