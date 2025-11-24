@@ -231,15 +231,22 @@
     - name: Check if TOTP is configured for admin user
       ansible.builtin.shell: |
         docker exec {{ project_name }}-authelia authelia storage user totp export uri \
-          --config /config/configuration.yml \
-          --users "{{ admin_email }}" 2>&1
+          --config /config/configuration.yml 2>&1
       register: totp_check_result
       changed_when: false
       failed_when: false
 
     - name: Set TOTP exists flag
       ansible.builtin.set_fact:
-        totp_exists: "{{ 'otpauth://' in totp_check_result.stdout }}"
+        totp_exists: "{{ admin_email in totp_check_result.stdout and 'otpauth://' in totp_check_result.stdout }}"
+
+    # Extract existing TOTP secret if it exists
+    - name: Extract existing TOTP secret
+      ansible.builtin.set_fact:
+        totp_secret: "{{ totp_check_result.stdout | regex_search('secret=([A-Z2-7]+)', '\\1') | first }}"
+      when:
+        - totp_exists
+        - "'secret=' in totp_check_result.stdout"
 
     # Generate TOTP if not exists
     - name: Generate TOTP secret for admin user
@@ -252,12 +259,13 @@
       failed_when: false
       when: not totp_exists
 
-    - name: Extract TOTP secret from output
+    - name: Extract new TOTP secret from output
       ansible.builtin.set_fact:
-        totp_secret: "{{ totp_generate_result.stdout | regex_search('secret=([A-Z2-7]+)', '\\1') | first | default('') }}"
+        totp_secret: "{{ totp_generate_result.stdout | regex_search('secret=([A-Z2-7]+)', '\\1') | first }}"
       when:
         - not totp_exists
         - totp_generate_result.stdout is defined
+        - "'secret=' in totp_generate_result.stdout"
 
     - name: Display update summary
       ansible.builtin.debug:
@@ -277,11 +285,11 @@
           - "Authelia Login: {{ admin_email }}"
           - "============================================"
 
-    - name: Display TOTP setup instructions (new TOTP generated)
+    - name: Display TOTP setup instructions
       ansible.builtin.debug:
         msg:
           - "============================================"
-          - "NEW: TOTP 2FA has been configured!"
+          - "TOTP 2FA Configuration"
           - "============================================"
           - ""
           - "TOTP Secret: {{ totp_secret }}"
@@ -297,12 +305,12 @@
           - "SAVE THIS SECRET!"
           - "============================================"
       when:
-        - not totp_exists
         - totp_secret is defined
         - totp_secret | length > 0
 
-    - name: Display TOTP already configured message
+    - name: Display TOTP not available message
       ansible.builtin.debug:
         msg:
-          - "TOTP: Already configured (no changes)"
-      when: totp_exists
+          - "WARNING: Could not retrieve TOTP secret"
+          - "You may need to manually check with: docker exec pgstack-authelia authelia storage user totp export uri --config /config/configuration.yml"
+      when: totp_secret is not defined or totp_secret | length == 0
