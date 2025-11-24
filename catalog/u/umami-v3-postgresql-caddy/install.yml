@@ -254,19 +254,19 @@
     - name: Check for existing containers
       ansible.builtin.shell: |
         set -o pipefail
-        docker ps -a --format '{{`{{.Names}}`}}' | grep -E '^(umami|umami-db)$' || true
+        docker ps -a --format '{{ '{{' }}.Names{{ '}}' }}' | grep -E '^(umami|umami-db)$' || true
       register: existing_containers
       changed_when: false
 
     - name: Check for existing network
       ansible.builtin.shell: |
         set -o pipefail
-        docker network ls --format '{{`{{.Name}}`}}' | grep -E '^umami_default$' || true
+        docker network ls --format '{{ '{{' }}.Name{{ '}}' }}' | grep -E '^umami_default$' || true
       register: existing_network
       changed_when: false
 
     - name: Fail if containers or network already exist
-      fail:
+      ansible.builtin.fail:
         msg: |
           ERROR: Existing Umami containers or network detected.
 

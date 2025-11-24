@@ -204,7 +204,7 @@
     - name: Check for existing OpenBB containers
       ansible.builtin.shell: |
         set -o pipefail
-        docker ps -a --format '{{`{{.Names}}`}}' | grep -i 'openbb' || true
+        docker ps -a --format '{{ '{{' }}.Names{{ '}}' }}' | grep -i 'openbb' || true
       register: existing_containers
       changed_when: false
 
