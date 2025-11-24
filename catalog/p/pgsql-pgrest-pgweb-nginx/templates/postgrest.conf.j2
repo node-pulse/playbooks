@@ -5,7 +5,7 @@
 db-uri = "postgres://{{ postgrest_role }}:{{ postgrest_password }}@db:5432/{{ postgres_db }}"
 
 # The name of which database schema to expose to REST clients
-db-schemas = "{{ postgrest_schemas | default('public') }}"
+db-schemas = "public"
 
 # The database role to use when no client authentication is provided
 db-anon-role = "{{ postgrest_anon_role }}"

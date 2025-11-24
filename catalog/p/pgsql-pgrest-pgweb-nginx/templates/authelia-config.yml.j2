@@ -57,8 +57,8 @@ session:
   inactivity: 5m
   cookies:
     - domain: {{ domain }}
-      authelia_url: {{ 'https' if enable_ssl else 'http' }}://{{ domain }}{{ authelia_path }}/
-      default_redirection_url: {{ 'https' if enable_ssl else 'http' }}://{{ domain }}{{ pgweb_path }}/
+      authelia_url: https://{{ domain }}{{ authelia_port }}/
+      default_redirection_url: https://{{ domain }}{{ pgweb_path }}/
 
 regulation:
   max_retries: 5

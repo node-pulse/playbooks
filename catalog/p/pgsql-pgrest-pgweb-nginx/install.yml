@@ -1,103 +1,83 @@
 ---
-- name: Install PostgreSQL Stack (PostgreSQL 18 + PostgREST + pgweb + Authelia)
+- name: Install PostgreSQL Stack (PostgreSQL 17 + PostgREST + pgweb + Authelia)
   hosts: all
   become: true
   vars:
-    # Path-based routing - all services under one domain
+    # Hardcoded paths
+    install_dir: "/opt/pgstack"
+    data_dir: "/opt/pgstack/data"
+    project_name: "pgstack"
+
+    # Hardcoded service paths
     pgweb_path: "/pgweb"
     postgrest_path: "/postgrest"
     auth_path: "/auth"
     authelia_path: "/authelia"
 
+    # Hardcoded ports (internal only)
+    postgres_port: 5432
+    postgrest_port: 3000
+    pgweb_port: 8081
+    authelia_port: 9091
+    auth_port: 5000
+
+    # Hardcoded database settings
+    postgres_db: "postgres"
+    postgres_user: "postgres"
+    postgrest_role: "authenticator"
+    postgrest_anon_role: "anon"
+
+    # SSL is always enabled
+    enable_ssl: true
+
   tasks:
-    - name: Set default values for configurable variables
-      ansible.builtin.set_fact:
-        install_dir: "{{ install_dir | default('/opt/postgresql-stack') }}"
-        postgres_port: "{{ postgres_port | default(5432) }}"
-        postgrest_port: "{{ postgrest_port | default(3000) }}"
-        pgweb_port: "{{ pgweb_port | default(8081) }}"
-        authelia_port: "{{ authelia_port | default(9091) }}"
-        auth_port: "{{ auth_port | default(5000) }}"
-        postgres_db: "{{ postgres_db | default('postgres') }}"
-        postgres_user: "{{ postgres_user | default('postgres') }}"
-        postgrest_role: "{{ postgrest_role | default('authenticator') }}"
-        postgrest_anon_role: "{{ postgrest_anon_role | default('anon') }}"
-        enable_ssl: "{{ enable_ssl | default(true) }}"
-
-    - name: Set data directory based on install directory
-      ansible.builtin.set_fact:
-        data_dir: "{{ install_dir }}/data"
-
-    - name: Set project name based on install directory
-      ansible.builtin.set_fact:
-        project_name: "{{ install_dir | basename | regex_replace('[^a-zA-Z0-9]', '') }}"
-
     - name: Validate required variables
       ansible.builtin.assert:
         that:
           - domain is defined
           - domain | length > 0
-          - enable_ssl == false or (admin_email is defined and admin_email | length > 0)
-        fail_msg: "Missing required variables. domain is required. admin_email is required when enable_ssl is true."
+          - admin_email is defined
+          - admin_email | length > 0
+        fail_msg: "Required variables: domain and admin_email"
 
-    - name: Generate PostgreSQL password if not provided
+    # Generate all passwords automatically
+    - name: Generate PostgreSQL password
       ansible.builtin.set_fact:
         postgres_password: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
-      when: postgres_password is not defined or postgres_password | length == 0
 
-    - name: Generate PostgREST authenticator password if not provided
+    - name: Generate PostgREST authenticator password
       ansible.builtin.set_fact:
         postgrest_password: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
-      when: postgrest_password is not defined or postgrest_password | length == 0
 
-    - name: Validate PostgREST password is URL-safe
-      ansible.builtin.assert:
-        that:
-          - postgrest_password is match('^[a-zA-Z0-9]+$')
-        fail_msg: |
-          ERROR: postgrest_password contains special characters that break PostgreSQL connection URIs.
-
-          The password must contain only letters and numbers (no @, !, #, etc.)
-          Current password: {{ postgrest_password }}
-
-          Please set a URL-safe password or let the playbook generate one automatically.
-
-    - name: Generate PostgREST JWT secret if not provided
+    - name: Generate PostgREST JWT secret
       ansible.builtin.set_fact:
         postgrest_jwt_secret: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
-      when: postgrest_jwt_secret is not defined or postgrest_jwt_secret | length == 0
 
-    - name: Generate Authelia JWT secret if not provided
+    - name: Generate Authelia JWT secret
       ansible.builtin.set_fact:
         authelia_jwt_secret: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
-      when: authelia_jwt_secret is not defined or authelia_jwt_secret | length == 0
 
-    - name: Generate Authelia session secret if not provided
+    - name: Generate Authelia session secret
       ansible.builtin.set_fact:
         authelia_session_secret: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
-      when: authelia_session_secret is not defined or authelia_session_secret | length == 0
 
-    - name: Generate Authelia storage encryption key if not provided
+    - name: Generate Authelia storage encryption key
       ansible.builtin.set_fact:
         authelia_storage_encryption_key: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
-      when: authelia_storage_encryption_key is not defined or authelia_storage_encryption_key | length == 0
 
-    - name: Generate Authelia admin password if not provided
+    - name: Generate Authelia admin password
       ansible.builtin.set_fact:
         authelia_admin_password: "{{ lookup('password', '/dev/null length=24 chars=ascii_letters,digits') }}"
-      when: authelia_admin_password is not defined or authelia_admin_password | length == 0
 
-    - name: Generate API user password if not provided
+    - name: Generate API user password
       ansible.builtin.set_fact:
         api_user_password: "{{ lookup('password', '/dev/null length=24 chars=ascii_letters,digits') }}"
-      when: api_user_password is not defined or api_user_password | length == 0
 
-    - name: Generate API admin password if not provided
+    - name: Generate API admin password
       ansible.builtin.set_fact:
         api_admin_password: "{{ lookup('password', '/dev/null length=24 chars=ascii_letters,digits') }}"
-      when: api_admin_password is not defined or api_admin_password | length == 0
 
-    # Nginx Detection Logic
+    # Nginx Detection
     - name: Check if system Nginx is installed
       ansible.builtin.command: which nginx
       register: nginx_binary
@@ -121,22 +101,21 @@
       ansible.builtin.fail:
         msg: |
           ERROR: Ports 80 and/or 443 are already in use, but Nginx is not installed.
-
-          This playbook uses system Nginx for multi-app support.
           Options:
-          1. Free up ports 80/443 and re-run (playbook will install system Nginx)
+          1. Free up ports 80/443 and re-run
           2. Install Nginx manually first
       when:
         - nginx_binary.rc != 0
         - ports_check.stdout == 'in_use'
 
-    - name: Display Nginx deployment decision
+    - name: Display deployment info
       ansible.builtin.debug:
         msg:
-          - "Deploying PostgreSQL Stack with system Nginx + Certbot SSL"
-          - "{{ 'Will use existing Nginx installation' if nginx_binary.rc == 0 else 'Will install Nginx from distribution repository' }}"
-          - "SSL: Automatic via Certbot"
+          - "Installing PostgreSQL Stack to {{ install_dir }}"
+          - "Domain: {{ domain }}"
+          - "SSL: Enabled (Certbot)"
 
+    # Install dependencies
     - name: Install required packages
       ansible.builtin.package:
         name:
@@ -226,6 +205,7 @@
         - "{{ data_dir }}/postgres"
         - "{{ data_dir }}/authelia"
 
+    # Create configuration files
     - name: Create .env file
       ansible.builtin.template:
         src: templates/env.j2
@@ -280,7 +260,7 @@
         dest: "{{ install_dir }}/Dockerfile.auth"
         mode: '0644'
 
-    # System Nginx Mode - Install or use existing Nginx installation
+    # Install and configure Nginx
     - name: Check if system Nginx is already installed
       ansible.builtin.command: which nginx
       register: system_nginx_check
@@ -310,18 +290,45 @@
         state: started
         enabled: true
 
-    - name: Create initial HTTP Nginx configuration (for Certbot validation)
-      ansible.builtin.template:
-        src: "templates/nginx-http-postgresql-stack.conf.j2"
+    # Create initial HTTP config for Certbot validation
+    - name: Create initial Nginx configuration for Certbot (Debian/Ubuntu)
+      ansible.builtin.copy:
         dest: "/etc/nginx/sites-available/{{ project_name }}"
         mode: '0644'
+        content: |
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name {{ domain }};
+
+              location /.well-known/acme-challenge/ {
+                  root /var/www/html;
+              }
+
+              location / {
+                  return 301 https://$host$request_uri;
+              }
+          }
       when: ansible_os_family == "Debian"
 
-    - name: Create initial HTTP Nginx configuration (for Certbot validation) - RHEL
-      ansible.builtin.template:
-        src: "templates/nginx-http-postgresql-stack.conf.j2"
+    - name: Create initial Nginx configuration for Certbot (RHEL)
+      ansible.builtin.copy:
         dest: "/etc/nginx/conf.d/{{ project_name }}.conf"
         mode: '0644'
+        content: |
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name {{ domain }};
+
+              location /.well-known/acme-challenge/ {
+                  root /var/www/html;
+              }
+
+              location / {
+                  return 301 https://$host$request_uri;
+              }
+          }
       when: ansible_os_family == "RedHat"
 
     - name: Enable Nginx site (Debian/Ubuntu)
@@ -330,7 +337,6 @@
         dest: "/etc/nginx/sites-enabled/{{ project_name }}"
         state: link
       when: ansible_os_family == "Debian"
-      notify: Reload Nginx
 
     - name: Test Nginx configuration
       ansible.builtin.command: nginx -t
@@ -341,6 +347,7 @@
         name: nginx
         state: reloaded
 
+    # Start Docker services
     - name: Pull Docker images
       ansible.builtin.command: docker compose pull
       args:
@@ -351,38 +358,17 @@
     - name: Check for existing containers
       ansible.builtin.shell: |
         set -o pipefail
-        docker ps -a --format '{{ '{{' }}.Names{{ '}}' }}' | grep -E '^({{ project_name }}-db|{{ project_name }}-postgrest|{{ project_name }}-pgweb|{{ project_name }}-auth|{{ project_name }}-authelia)$' || true
+        docker ps -a --format '{{ '{{' }}.Names{{ '}}' }}' | grep -E '^{{ project_name }}-' || true
       register: existing_containers
       changed_when: false
 
-    - name: Check for existing network
-      ansible.builtin.shell: |
-        set -o pipefail
-        docker network ls --format '{{ '{{' }}.Name{{ '}}' }}' | grep -E '^{{ project_name }}_default$' || true
-      register: existing_network
-      changed_when: false
-
-    - name: Fail if containers or network already exist
+    - name: Fail if containers already exist
       ansible.builtin.fail:
         msg: |
-          ERROR: Existing containers or network detected for project '{{ project_name }}'.
-
-          Existing containers found:
-          {{ existing_containers.stdout if existing_containers.stdout else '  (none)' }}
-
-          Existing network found:
-          {{ existing_network.stdout if existing_network.stdout else '  (none)' }}
-
-          To avoid data loss, this playbook will NOT automatically remove existing containers.
-
-          If you want to reinstall:
-          1. Run the uninstall playbook first: ansible-playbook uninstall.yml
-          2. Then run this install playbook again
-
-          Or manually remove containers and network:
-            docker rm -f {{ project_name }}-db {{ project_name }}-postgrest {{ project_name }}-pgweb {{ project_name }}-auth {{ project_name }}-authelia
-            docker network rm {{ project_name }}_default
-      when: existing_containers.stdout != '' or existing_network.stdout != ''
+          ERROR: Existing containers detected for project '{{ project_name }}'.
+          Run uninstall.yml first or manually remove containers:
+            docker rm -f $(docker ps -a --filter name={{ project_name }} -q)
+      when: existing_containers.stdout != ''
 
     - name: Start PostgreSQL Stack services
       ansible.builtin.command: docker compose up -d
@@ -440,16 +426,14 @@
       retries: 30
       delay: 5
 
-    # SSL Certificate with Certbot
+    # SSL with Certbot
     - name: Install Certbot (Debian/Ubuntu)
       ansible.builtin.apt:
         name:
           - certbot
           - python3-certbot-nginx
         state: present
-      when:
-        - enable_ssl
-        - ansible_os_family == "Debian"
+      when: ansible_os_family == "Debian"
 
     - name: Install Certbot (RHEL/Rocky/Alma)
       ansible.builtin.dnf:
@@ -457,11 +441,9 @@
           - certbot
           - python3-certbot-nginx
         state: present
-      when:
-        - enable_ssl
-        - ansible_os_family == "RedHat"
+      when: ansible_os_family == "RedHat"
 
-    - name: Obtain SSL certificate for domain
+    - name: Obtain SSL certificate
       ansible.builtin.command: >
         certbot --nginx
         -d {{ domain }}
@@ -469,17 +451,25 @@
         --agree-tos
         --email {{ admin_email }}
         --redirect
-      when: enable_ssl
       register: certbot_result
       changed_when: "'Successfully received certificate' in certbot_result.stdout"
 
-    - name: Apply optimized HTTPS configuration
+    - name: Apply HTTPS Nginx configuration (Debian/Ubuntu)
       ansible.builtin.template:
         src: templates/nginx-https-postgresql-stack.conf.j2
-        dest: "{{ '/etc/nginx/sites-available/' + project_name if ansible_os_family == 'Debian' else '/etc/nginx/conf.d/' + project_name + '.conf' }}"
+        dest: "/etc/nginx/sites-available/{{ project_name }}"
         mode: '0644'
-      when: enable_ssl
-      notify: Reload Nginx
+      when: ansible_os_family == "Debian"
+
+    - name: Apply HTTPS Nginx configuration (RHEL)
+      ansible.builtin.template:
+        src: templates/nginx-https-postgresql-stack.conf.j2
+        dest: "/etc/nginx/conf.d/{{ project_name }}.conf"
+        mode: '0644'
+      when: ansible_os_family == "RedHat"
+
+    - name: Test and reload Nginx
+      ansible.builtin.shell: nginx -t && systemctl reload nginx
 
     - name: Setup automatic certificate renewal
       ansible.builtin.cron:
@@ -487,56 +477,38 @@
         minute: "0"
         hour: "0,12"
         job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
-      when: enable_ssl
 
     - name: Display installation summary
       ansible.builtin.debug:
         msg:
-          - "PostgreSQL Stack installation complete!"
           - "============================================"
-          - "Base URL: {{ 'https' if enable_ssl else 'http' }}://{{ domain }}"
+          - "PostgreSQL Stack Installation Complete!"
+          - "============================================"
+          - ""
+          - "Base URL: https://{{ domain }}"
           - ""
           - "Services:"
-          - "  pgweb (Web UI):    {{ 'https' if enable_ssl else 'http' }}://{{ domain }}{{ pgweb_path }}/ (protected by Authelia 2FA)"
-          - "  PostgREST API:     {{ 'https' if enable_ssl else 'http' }}://{{ domain }}{{ postgrest_path }}/ (requires JWT auth)"
-          - "  Auth Service:      {{ 'https' if enable_ssl else 'http' }}://{{ domain }}{{ auth_path }}/ (JWT token generation)"
-          - "  Authelia Portal:   {{ 'https' if enable_ssl else 'http' }}://{{ domain }}{{ authelia_path }}/ (2FA login page)"
+          - "  pgweb:     https://{{ domain }}/pgweb/"
+          - "  PostgREST: https://{{ domain }}/postgrest/"
+          - "  Auth:      https://{{ domain }}/auth/"
+          - "  Authelia:  https://{{ domain }}/authelia/"
           - ""
-          - "PostgreSQL Credentials:"
+          - "PostgreSQL:"
           - "  User: {{ postgres_user }}"
           - "  Password: {{ postgres_password }}"
           - "  Database: {{ postgres_db }}"
           - ""
-          - "JWT Auth API Credentials:"
-          - "  API User:"
-          - "    Username: api_user"
-          - "    Password: {{ api_user_password }}"
-          - "    Role: api_user (read/write access)"
-          - "  API Admin:"
-          - "    Username: admin"
-          - "    Password: {{ api_admin_password }}"
-          - "    Role: admin (full access)"
+          - "API Credentials:"
+          - "  api_user / {{ api_user_password }}"
+          - "  admin / {{ api_admin_password }}"
           - ""
-          - "Authelia (protects pgweb only):"
-          - "  Username: admin"
-          - "  Password: {{ authelia_admin_password }}"
+          - "Authelia (2FA for pgweb):"
+          - "  admin / {{ authelia_admin_password }}"
           - ""
-          - "IMPORTANT: Save these credentials securely!"
+          - "SAVE THESE CREDENTIALS!"
           - ""
-          - "Quick Start:"
-          - "  1. Get JWT token: curl -X POST {{ 'https' if enable_ssl else 'http' }}://{{ domain }}{{ auth_path }}/login -H 'Content-Type: application/json' -d '{\"username\":\"api_user\",\"password\":\"{{ api_user_password }}\"}'"
-          - "  2. Use token: curl {{ 'https' if enable_ssl else 'http' }}://{{ domain }}{{ postgrest_path }}/sample_data -H 'Authorization: Bearer YOUR_TOKEN'"
-          - ""
-          - "Installation directory: {{ install_dir }}"
-          - "Data directory: {{ data_dir }}"
-          - "Reverse Proxy: Nginx (path-based routing)"
-          - "SSL Certificate: {{ 'Enabled (Let''s Encrypt)' if enable_ssl else 'Disabled' }}"
-          - ""
-          - "To manage the service:"
-          - "  Start:   cd {{ install_dir }} && docker compose start"
-          - "  Stop:    cd {{ install_dir }} && docker compose stop"
-          - "  Restart: cd {{ install_dir }} && docker compose restart"
-          - "  Logs:    cd {{ install_dir }} && docker compose logs -f"
+          - "Installation: {{ install_dir }}"
+          - "============================================"
 
   handlers:
     - name: Reload Nginx

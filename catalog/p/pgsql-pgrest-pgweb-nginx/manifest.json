@@ -2,8 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/refs/heads/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
   "id": "pb_PgRstPgWeb",
   "name": "PostgreSQL Stack (PostgreSQL + PostgREST + pgweb + Nginx)",
-  "version": "1.4.29",
-  "description": "Complete PostgreSQL service stack with PostgreSQL 18, PostgREST RESTful API with JWT authentication, pgweb web UI protected by Authelia 2FA, and Nginx reverse proxy with path-based routing and automatic SSL",
+  "version": "1.5.0",
+  "description": "Complete PostgreSQL service stack with PostgreSQL 17, PostgREST RESTful API with JWT authentication, pgweb web UI protected by Authelia 2FA, and Nginx reverse proxy with path-based routing and automatic SSL. Installs to /opt/pgstack.",
   "author": {
     "name": "Yumin",
     "email": "yuminops@gmail.com",
@@ -28,32 +28,15 @@
     "playbooks": {
       "install": {
         "file": "install.yml",
-        "variables": [
-          "domain",
-          "postgres_port",
-          "postgres_user",
-          "postgres_password",
-          "postgres_db",
-          "postgrest_role",
-          "postgrest_password",
-          "postgrest_anon_role",
-          "postgrest_jwt_secret",
-          "postgrest_schemas",
-          "api_user_password",
-          "api_admin_password",
-          "authelia_admin_password",
-          "enable_ssl",
-          "admin_email",
-          "install_dir"
-        ]
+        "variables": ["domain", "admin_email"]
       },
       "uninstall": {
         "file": "uninstall.yml",
-        "variables": ["install_dir", "domain"]
+        "variables": ["domain"]
       },
       "update": {
         "file": "update.yml",
-        "variables": ["domain", "install_dir"]
+        "variables": ["domain"]
       }
     },
     "templates": [
@@ -66,276 +49,61 @@
       "templates/Dockerfile.auth.j2",
       "templates/authelia-config.yml.j2",
       "templates/authelia-users.yml.j2",
-      "templates/nginx-http-postgresql-stack.conf.j2",
       "templates/nginx-https-postgresql-stack.conf.j2"
     ],
     "files": []
   },
   "ansible_version": ">=2.10",
   "os_support": [
-    {
-      "distro": "ubuntu",
-      "version": "20.04",
-      "arch": "both"
-    },
-    {
-      "distro": "ubuntu",
-      "version": "22.04",
-      "arch": "both"
-    },
-    {
-      "distro": "ubuntu",
-      "version": "24.04",
-      "arch": "both"
-    },
-    {
-      "distro": "debian",
-      "version": "11",
-      "arch": "both"
-    },
-    {
-      "distro": "debian",
-      "version": "12",
-      "arch": "both"
-    },
-    {
-      "distro": "rhel",
-      "version": "8",
-      "arch": "both"
-    },
-    {
-      "distro": "rhel",
-      "version": "9",
-      "arch": "both"
-    },
-    {
-      "distro": "rocky",
-      "version": "8",
-      "arch": "both"
-    },
-    {
-      "distro": "rocky",
-      "version": "9",
-      "arch": "both"
-    },
-    {
-      "distro": "alma",
-      "version": "8",
-      "arch": "both"
-    },
-    {
-      "distro": "alma",
-      "version": "9",
-      "arch": "both"
-    },
-    {
-      "distro": "oracle",
-      "version": "8",
-      "arch": "both"
-    },
-    {
-      "distro": "oracle",
-      "version": "9",
-      "arch": "both"
-    },
-    {
-      "distro": "amazon",
-      "version": "2",
-      "arch": "both"
-    },
-    {
-      "distro": "amazon",
-      "version": "2023",
-      "arch": "both"
-    }
+    {"distro": "ubuntu", "version": "20.04", "arch": "both"},
+    {"distro": "ubuntu", "version": "22.04", "arch": "both"},
+    {"distro": "ubuntu", "version": "24.04", "arch": "both"},
+    {"distro": "debian", "version": "11", "arch": "both"},
+    {"distro": "debian", "version": "12", "arch": "both"},
+    {"distro": "rhel", "version": "8", "arch": "both"},
+    {"distro": "rhel", "version": "9", "arch": "both"},
+    {"distro": "rocky", "version": "8", "arch": "both"},
+    {"distro": "rocky", "version": "9", "arch": "both"},
+    {"distro": "alma", "version": "8", "arch": "both"},
+    {"distro": "alma", "version": "9", "arch": "both"}
   ],
   "variables": [
     {
       "name": "domain",
       "label": "Domain Name",
       "type": "string",
-      "description": "Domain for all PostgreSQL Stack services using path-based routing (e.g., example.com). Services will be available at /pgweb, /postgrest, /auth, and /authelia paths.",
+      "description": "Domain for PostgreSQL Stack. Services available at /pgweb, /postgrest, /auth, /authelia",
       "required": true,
       "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$"
     },
     {
-      "name": "postgres_port",
-      "label": "PostgreSQL Port",
-      "type": "integer",
-      "default": 5432,
-      "description": "Port for PostgreSQL database",
-      "required": false,
-      "min": 1024,
-      "max": 65535
-    },
-    {
-      "name": "postgres_user",
-      "label": "PostgreSQL Username",
-      "type": "string",
-      "default": "postgres",
-      "description": "PostgreSQL superuser username",
-      "required": false,
-      "pattern": "^[a-z_][a-z0-9_]*$"
-    },
-    {
-      "name": "postgres_password",
-      "label": "PostgreSQL Password",
-      "type": "password",
-      "description": "PostgreSQL password (auto-generated if not provided)",
-      "required": false
-    },
-    {
-      "name": "postgres_db",
-      "label": "PostgreSQL Database Name",
-      "type": "string",
-      "default": "postgres",
-      "description": "PostgreSQL database name",
-      "required": false,
-      "pattern": "^[a-z_][a-z0-9_]*$"
-    },
-    {
-      "name": "postgrest_role",
-      "label": "PostgREST Role Name",
-      "type": "string",
-      "default": "authenticator",
-      "description": "Database role for PostgREST",
-      "required": false,
-      "pattern": "^[a-z_][a-z0-9_]*$"
-    },
-    {
-      "name": "postgrest_password",
-      "label": "PostgREST Password",
-      "type": "password",
-      "description": "PostgREST role password (auto-generated if not provided)",
-      "required": false
-    },
-    {
-      "name": "postgrest_anon_role",
-      "label": "PostgREST Anonymous Role",
-      "type": "string",
-      "default": "anon",
-      "description": "Anonymous role for unauthenticated API requests",
-      "required": false,
-      "pattern": "^[a-z_][a-z0-9_]*$"
-    },
-    {
-      "name": "postgrest_jwt_secret",
-      "label": "PostgREST JWT Secret",
-      "type": "password",
-      "description": "JWT secret for PostgREST authentication (auto-generated if not provided)",
-      "required": false
-    },
-    {
-      "name": "postgrest_schemas",
-      "label": "PostgREST Schemas",
-      "type": "string",
-      "default": "public",
-      "description": "Database schemas to expose via API (comma-separated)",
-      "required": false
-    },
-    {
-      "name": "api_user_password",
-      "label": "API User Password",
-      "type": "password",
-      "description": "Password for api_user role (read/write API access, auto-generated if not provided)",
-      "required": false
-    },
-    {
-      "name": "api_admin_password",
-      "label": "API Admin Password",
-      "type": "password",
-      "description": "Password for admin role (full API access, auto-generated if not provided)",
-      "required": false
-    },
-    {
-      "name": "authelia_admin_password",
-      "label": "Authelia Admin Password",
-      "type": "password",
-      "description": "Authelia admin password (auto-generated if not provided)",
-      "required": false
-    },
-    {
-      "name": "enable_ssl",
-      "label": "Enable HTTPS/SSL",
-      "type": "boolean",
-      "default": true,
-      "description": "Automatically obtain and configure SSL certificate via Certbot",
-      "required": false
-    },
-    {
       "name": "admin_email",
-      "label": "Admin Email (for SSL)",
+      "label": "Admin Email",
       "type": "string",
-      "description": "Email address for SSL certificate notifications (required if SSL enabled)",
-      "required": false,
+      "description": "Email for SSL certificate notifications",
+      "required": true,
       "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-    },
-    {
-      "name": "install_dir",
-      "label": "Installation Directory",
-      "type": "string",
-      "default": "/opt/postgresql-stack",
-      "description": "Directory where PostgreSQL Stack will be installed",
-      "required": false,
-      "pattern": "^/[a-zA-Z0-9/_-]+$"
     }
   ],
   "health_checks": [
-    {
-      "type": "tcp",
-      "port": 5432,
-      "timeout": 10
-    },
-    {
-      "type": "tcp",
-      "port": 3000,
-      "timeout": 10
-    },
-    {
-      "type": "tcp",
-      "port": 8081,
-      "timeout": 10
-    },
-    {
-      "type": "command",
-      "command": "docker ps | grep -q postgresql-stack-db",
-      "timeout": 5
-    },
-    {
-      "type": "command",
-      "command": "docker ps | grep -q postgresql-stack-postgrest",
-      "timeout": 5
-    },
-    {
-      "type": "command",
-      "command": "docker ps | grep -q postgresql-stack-pgweb",
-      "timeout": 5
-    },
-    {
-      "type": "command",
-      "command": "docker ps | grep -q postgresql-stack-authelia",
-      "timeout": 5
-    },
-    {
-      "type": "command",
-      "command": "systemctl is-active nginx",
-      "timeout": 5
-    }
+    {"type": "tcp", "port": 5432, "timeout": 10},
+    {"type": "tcp", "port": 3000, "timeout": 10},
+    {"type": "tcp", "port": 8081, "timeout": 10},
+    {"type": "command", "command": "docker ps | grep -q pgstack-db", "timeout": 5},
+    {"type": "command", "command": "docker ps | grep -q pgstack-postgrest", "timeout": 5},
+    {"type": "command", "command": "docker ps | grep -q pgstack-pgweb", "timeout": 5},
+    {"type": "command", "command": "docker ps | grep -q pgstack-authelia", "timeout": 5},
+    {"type": "command", "command": "systemctl is-active nginx", "timeout": 5}
   ],
   "dangerous_operations": [
-    "Installs Docker and Docker Compose if not present",
-    "Creates PostgreSQL 18 database with persistent storage",
-    "Exposes PostgreSQL on port 5432 (configure firewall as needed)",
-    "Creates PostgREST API with JWT authentication accessible via HTTPS",
-    "Builds and deploys custom JWT authentication service",
-    "Deploys Authelia for 2FA protection of pgweb",
-    "Installs or configures Nginx as reverse proxy with path-based routing",
-    "Installs Certbot and obtains SSL certificate from Let's Encrypt (1 domain)",
-    "Opens ports 80, 443, and 5432 for access",
-    "Stores database data in /opt/postgresql-stack/data directory",
-    "May modify Nginx configuration in /etc/nginx/"
+    "Installs Docker if not present",
+    "Creates PostgreSQL 17 database in /opt/pgstack/data",
+    "Exposes PostgreSQL on localhost:5432 only",
+    "Deploys PostgREST API, pgweb UI, and Authelia 2FA",
+    "Installs/configures Nginx as reverse proxy",
+    "Obtains SSL certificate from Let's Encrypt"
   ],
   "license": "MIT",
   "created_at": "2025-11-19T00:00:00Z",
-  "updated_at": "2025-11-22T00:00:00Z"
+  "updated_at": "2025-11-24T00:00:00Z"
 }

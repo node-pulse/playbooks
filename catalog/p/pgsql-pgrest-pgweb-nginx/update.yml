@@ -3,35 +3,34 @@
   hosts: all
   become: true
   vars:
-    # Path-based routing - all services under one domain
+    # Hardcoded paths
+    install_dir: "/opt/pgstack"
+    data_dir: "/opt/pgstack/data"
+    project_name: "pgstack"
+
+    # Hardcoded service paths
     pgweb_path: "/pgweb"
     postgrest_path: "/postgrest"
     auth_path: "/auth"
     authelia_path: "/authelia"
 
+    # Hardcoded ports
+    postgres_port: 5432
+    postgrest_port: 3000
+    pgweb_port: 8081
+    authelia_port: 9091
+    auth_port: 5000
+
+    # Hardcoded database settings
+    postgres_db: "postgres"
+    postgres_user: "postgres"
+    postgrest_role: "authenticator"
+    postgrest_anon_role: "anon"
+
+    # SSL always enabled
+    enable_ssl: true
+
   tasks:
-    - name: Set default values for configurable variables
-      ansible.builtin.set_fact:
-        install_dir: "{{ install_dir | default('/opt/postgresql-stack') }}"
-        postgres_port: "{{ postgres_port | default(5432) }}"
-        postgrest_port: "{{ postgrest_port | default(3000) }}"
-        pgweb_port: "{{ pgweb_port | default(8081) }}"
-        authelia_port: "{{ authelia_port | default(9091) }}"
-        auth_port: "{{ auth_port | default(5000) }}"
-        postgres_db: "{{ postgres_db | default('postgres') }}"
-        postgres_user: "{{ postgres_user | default('postgres') }}"
-        postgrest_role: "{{ postgrest_role | default('authenticator') }}"
-        postgrest_anon_role: "{{ postgrest_anon_role | default('anon') }}"
-        enable_ssl: "{{ enable_ssl | default(true) }}"
-
-    - name: Set data directory based on install directory
-      ansible.builtin.set_fact:
-        data_dir: "{{ install_dir }}/data"
-
-    - name: Set project name based on install directory
-      ansible.builtin.set_fact:
-        project_name: "{{ install_dir | basename | regex_replace('[^a-zA-Z0-9]', '') }}"
-
     - name: Validate required variables
       ansible.builtin.assert:
         that:
@@ -48,26 +47,16 @@
       ansible.builtin.fail:
         msg: |
           ERROR: PostgreSQL Stack installation not found at {{ install_dir }}
-
-          The update playbook requires an existing installation.
-
-          To install for the first time, use:
-            ansible-playbook install.yml -e domain={{ domain }}
+          Run install.yml first: ansible-playbook install.yml -e domain={{ domain }} -e admin_email=you@example.com
       when: not install_check.stat.exists
 
     - name: Display update information
       ansible.builtin.debug:
         msg:
           - "Updating PostgreSQL Stack at {{ install_dir }}"
-          - "Project name: {{ project_name }}"
           - "Domain: {{ domain }}"
 
-    # Load existing passwords from .env file to prevent regeneration
-    - name: Check if .env file exists
-      ansible.builtin.stat:
-        path: "{{ install_dir }}/.env"
-      register: env_file
-
+    # Load existing credentials from .env
     - name: Load existing credentials from .env
       ansible.builtin.shell: |
         set -o pipefail
@@ -83,96 +72,35 @@
         - AUTHELIA_ADMIN_PASSWORD
         - API_USER_PASSWORD
         - API_ADMIN_PASSWORD
-      when: env_file.stat.exists
       changed_when: false
       failed_when: false
 
     - name: Set credentials from existing .env
       ansible.builtin.set_fact:
-        postgres_password: "{{ existing_credentials.results[0].stdout | default(postgres_password | default('')) }}"
-        postgrest_password: "{{ existing_credentials.results[1].stdout | default(postgrest_password | default('')) }}"
-        postgrest_jwt_secret: "{{ existing_credentials.results[2].stdout | default(postgrest_jwt_secret | default('')) }}"
-        authelia_jwt_secret: "{{ existing_credentials.results[3].stdout | default(authelia_jwt_secret | default('')) }}"
-        authelia_session_secret: "{{ existing_credentials.results[4].stdout | default(authelia_session_secret | default('')) }}"
-        authelia_storage_encryption_key: "{{ existing_credentials.results[5].stdout | default(authelia_storage_encryption_key | default('')) }}"
-        authelia_admin_password: "{{ existing_credentials.results[6].stdout | default(authelia_admin_password | default('')) }}"
-        api_user_password: "{{ existing_credentials.results[7].stdout | default(api_user_password | default('')) }}"
-        api_admin_password: "{{ existing_credentials.results[8].stdout | default(api_admin_password | default('')) }}"
-      when: env_file.stat.exists
+        postgres_password: "{{ existing_credentials.results[0].stdout }}"
+        postgrest_password: "{{ existing_credentials.results[1].stdout }}"
+        postgrest_jwt_secret: "{{ existing_credentials.results[2].stdout }}"
+        authelia_jwt_secret: "{{ existing_credentials.results[3].stdout }}"
+        authelia_session_secret: "{{ existing_credentials.results[4].stdout }}"
+        authelia_storage_encryption_key: "{{ existing_credentials.results[5].stdout }}"
+        authelia_admin_password: "{{ existing_credentials.results[6].stdout }}"
+        api_user_password: "{{ existing_credentials.results[7].stdout }}"
+        api_admin_password: "{{ existing_credentials.results[8].stdout }}"
 
-    # Generate missing credentials (fallback if .env doesn't exist or is incomplete)
-    - name: Generate PostgreSQL password if not loaded
-      ansible.builtin.set_fact:
-        postgres_password: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
-      when: postgres_password is not defined or postgres_password | length == 0
-
-    - name: Generate PostgREST authenticator password if not loaded
-      ansible.builtin.set_fact:
-        postgrest_password: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
-      when: postgrest_password is not defined or postgrest_password | length == 0
-
-    - name: Generate PostgREST JWT secret if not loaded
-      ansible.builtin.set_fact:
-        postgrest_jwt_secret: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
-      when: postgrest_jwt_secret is not defined or postgrest_jwt_secret | length == 0
-
-    - name: Generate Authelia JWT secret if not loaded
-      ansible.builtin.set_fact:
-        authelia_jwt_secret: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
-      when: authelia_jwt_secret is not defined or authelia_jwt_secret | length == 0
-
-    - name: Generate Authelia session secret if not loaded
-      ansible.builtin.set_fact:
-        authelia_session_secret: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
-      when: authelia_session_secret is not defined or authelia_session_secret | length == 0
-
-    - name: Generate Authelia storage encryption key if not loaded
-      ansible.builtin.set_fact:
-        authelia_storage_encryption_key: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
-      when: authelia_storage_encryption_key is not defined or authelia_storage_encryption_key | length == 0
-
-    - name: Generate Authelia admin password if not loaded
-      ansible.builtin.set_fact:
-        authelia_admin_password: "{{ lookup('password', '/dev/null length=24 chars=ascii_letters,digits') }}"
-      when: authelia_admin_password is not defined or authelia_admin_password | length == 0
-
-    - name: Generate API user password if not loaded
-      ansible.builtin.set_fact:
-        api_user_password: "{{ lookup('password', '/dev/null length=24 chars=ascii_letters,digits') }}"
-      when: api_user_password is not defined or api_user_password | length == 0
-
-    - name: Generate API admin password if not loaded
-      ansible.builtin.set_fact:
-        api_admin_password: "{{ lookup('password', '/dev/null length=24 chars=ascii_letters,digits') }}"
-      when: api_admin_password is not defined or api_admin_password | length == 0
-
-    # Load existing Authelia password hash to avoid unnecessary regeneration
-    - name: Check if Authelia users file exists
-      ansible.builtin.stat:
-        path: "{{ install_dir }}/authelia-users.yml"
-      register: authelia_users_file
-
+    # Load existing Authelia password hash
     - name: Load existing Authelia password hash
       ansible.builtin.shell: |
         set -o pipefail
-        # Extract just the argon2 hash pattern, ignoring any surrounding garbage
         grep -oE '\$argon2id\$v=[0-9]+\$m=[0-9]+,t=[0-9]+,p=[0-9]+\$[A-Za-z0-9+/]+\$[A-Za-z0-9+/]+' {{ install_dir }}/authelia-users.yml | head -1
       register: existing_authelia_hash
-      when: authelia_users_file.stat.exists
       changed_when: false
       failed_when: false
 
-    - name: Hash Authelia admin password only if needed
-      ansible.builtin.shell: docker run --rm authelia/authelia:4.38.16 authelia crypto hash generate argon2 --password "{{ authelia_admin_password }}" | grep 'Digest:' | awk '{print $2}'
-      register: authelia_password_hash_result
-      when: not authelia_users_file.stat.exists or existing_authelia_hash.stdout == ''
-      changed_when: false
-
-    - name: Set Authelia admin password hash (from existing or newly generated)
+    - name: Set Authelia admin password hash
       ansible.builtin.set_fact:
-        authelia_admin_password_hash: "{{ existing_authelia_hash.stdout if (authelia_users_file.stat.exists and existing_authelia_hash.stdout != '') else authelia_password_hash_result.stdout }}"
+        authelia_admin_password_hash: "{{ existing_authelia_hash.stdout }}"
 
-    # Update all configuration files
+    # Update configuration files
     - name: Update .env file
       ansible.builtin.template:
         src: templates/env.j2
@@ -234,62 +162,36 @@
         mode: '0644'
       register: auth_dockerfile_updated
 
-    # Update Nginx configuration (force: yes to always sync latest without checksum)
+    # Update Nginx configuration
     - name: Update Nginx HTTPS configuration (Debian/Ubuntu)
       ansible.builtin.template:
         src: templates/nginx-https-postgresql-stack.conf.j2
         dest: "/etc/nginx/sites-available/{{ project_name }}"
         mode: '0644'
-        force: yes
-      when:
-        - enable_ssl
-        - ansible_os_family == "Debian"
+        force: true
+      when: ansible_os_family == "Debian"
       register: nginx_updated_debian
 
-    - name: Update Nginx HTTPS configuration (RHEL/Rocky/Alma)
+    - name: Update Nginx HTTPS configuration (RHEL)
       ansible.builtin.template:
         src: templates/nginx-https-postgresql-stack.conf.j2
         dest: "/etc/nginx/conf.d/{{ project_name }}.conf"
         mode: '0644'
-        force: yes
-      when:
-        - enable_ssl
-        - ansible_os_family == "RedHat"
+        force: true
+      when: ansible_os_family == "RedHat"
       register: nginx_updated_rhel
-
-    - name: Update Nginx HTTP configuration (Debian/Ubuntu)
-      ansible.builtin.template:
-        src: templates/nginx-http-postgresql-stack.conf.j2
-        dest: "/etc/nginx/sites-available/{{ project_name }}"
-        mode: '0644'
-        force: yes
-      when:
-        - not enable_ssl
-        - ansible_os_family == "Debian"
-      register: nginx_updated_debian_http
-
-    - name: Update Nginx HTTP configuration (RHEL/Rocky/Alma)
-      ansible.builtin.template:
-        src: templates/nginx-http-postgresql-stack.conf.j2
-        dest: "/etc/nginx/conf.d/{{ project_name }}.conf"
-        mode: '0644'
-        force: yes
-      when:
-        - not enable_ssl
-        - ansible_os_family == "RedHat"
-      register: nginx_updated_rhel_http
 
     - name: Test Nginx configuration
       ansible.builtin.command: nginx -t
       changed_when: false
 
-    - name: Reload Nginx if configuration changed
+    - name: Reload Nginx
       ansible.builtin.systemd:
         name: nginx
         state: reloaded
-      when: nginx_updated_debian.changed or nginx_updated_rhel.changed or nginx_updated_debian_http.changed or nginx_updated_rhel_http.changed
+      when: nginx_updated_debian.changed or nginx_updated_rhel.changed
 
-    # Restart services if configs changed
+    # Restart services if needed
     - name: Restart Docker containers if configuration changed
       ansible.builtin.command: docker compose up -d
       args:
@@ -310,19 +212,10 @@
         msg:
           - "PostgreSQL Stack update complete!"
           - "============================================"
-          - "Updated configurations:"
-          - "  Environment: {{ 'Yes' if env_updated.changed else 'No changes' }}"
-          - "  Docker Compose: {{ 'Yes' if compose_updated.changed else 'No changes' }}"
-          - "  PostgREST: {{ 'Yes' if postgrest_conf_updated.changed else 'No changes' }}"
-          - "  Authelia: {{ 'Yes' if authelia_config_updated.changed else 'No changes' }}"
-          - "  Auth Service: {{ 'Yes' if auth_service_updated.changed else 'No changes' }}"
-          - "  Nginx: {{ 'Yes' if (nginx_updated_debian.changed or nginx_updated_rhel.changed or nginx_updated_debian_http.changed or nginx_updated_rhel_http.changed) else 'No changes' }}"
+          - "Base URL: https://{{ domain }}"
           - ""
-          - "Containers: {{ 'Restarted' if docker_restart.changed else 'No restart needed' }}"
-          - ""
-          - "Base URL: {{ 'https' if enable_ssl else 'http' }}://{{ domain }}"
           - "Services:"
-          - "  pgweb:    {{ 'https' if enable_ssl else 'http' }}://{{ domain }}{{ pgweb_path }}/"
-          - "  PostgREST: {{ 'https' if enable_ssl else 'http' }}://{{ domain }}{{ postgrest_path }}/"
-          - "  Auth:     {{ 'https' if enable_ssl else 'http' }}://{{ domain }}{{ auth_path }}/"
-          - "  Authelia: {{ 'https' if enable_ssl else 'http' }}://{{ domain }}{{ authelia_path }}/"
+          - "  pgweb:     https://{{ domain }}/pgweb/"
+          - "  PostgREST: https://{{ domain }}/postgrest/"
+          - "  Auth:      https://{{ domain }}/auth/"
+          - "  Authelia:  https://{{ domain }}/authelia/"

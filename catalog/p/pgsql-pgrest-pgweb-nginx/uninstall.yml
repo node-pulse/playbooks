@@ -1,16 +1,13 @@
 ---
-- name: Uninstall PostgreSQL Stack (PostgreSQL 18 + PostgREST + pgweb + Authelia)
+- name: Uninstall PostgreSQL Stack
   hosts: all
   become: true
   vars:
-    install_dir: "{{ install_dir | default('/opt/postgresql-stack') }}"
-    data_dir: "{{ install_dir }}/data"
-    domain: "{{ domain | default('') }}"
+    install_dir: "/opt/pgstack"
+    data_dir: "/opt/pgstack/data"
+    project_name: "pgstack"
 
   tasks:
-    - name: Set project name based on install directory
-      ansible.builtin.set_fact:
-        project_name: "{{ install_dir | basename | regex_replace('[^a-zA-Z0-9]', '') }}"
     - name: Check if installation directory exists
       ansible.builtin.stat:
         path: "{{ install_dir }}"
@@ -18,16 +15,14 @@
 
     - name: Warn if installation not found
       ansible.builtin.debug:
-        msg:
-          - "WARNING: Installation directory not found at {{ install_dir }}"
-          - "PostgreSQL Stack may not be installed or was installed in a different location."
+        msg: "WARNING: Installation not found at {{ install_dir }}"
       when: not install_dir_stat.stat.exists
 
     - name: Display warning about data deletion
       ansible.builtin.debug:
         msg:
-          - "⚠️  WARNING: Permanently deleting all PostgreSQL data at {{ install_dir }}"
-          - "This includes all databases, tables, Authelia user data, and configuration files"
+          - "WARNING: Permanently deleting all PostgreSQL data at {{ install_dir }}"
+          - "This includes all databases, tables, and configuration files"
       when: install_dir_stat.stat.exists
 
     - name: Stop and remove Docker containers
@@ -37,21 +32,12 @@
       failed_when: false
       when: install_dir_stat.stat.exists
 
-    - name: Force remove containers and network (in case of conflicts)
+    - name: Force remove containers and network
       ansible.builtin.shell: |
         docker rm -f {{ project_name }}-db {{ project_name }}-postgrest {{ project_name }}-pgweb {{ project_name }}-auth {{ project_name }}-authelia 2>/dev/null || true
         docker network rm {{ project_name }}_default 2>/dev/null || true
       failed_when: false
       changed_when: false
-
-    - name: Remove PostgreSQL Stack Docker images
-      ansible.builtin.shell: |
-        set -o pipefail
-        docker rmi postgres:18.1-alpine || true
-        docker rmi postgrest/postgrest:v12.2.3 || true
-        docker rmi sosedoff/pgweb:0.16.2 || true
-        docker rmi authelia/authelia:4.38.16 || true
-      failed_when: false
 
     - name: Remove installation directory
       ansible.builtin.file:
@@ -69,7 +55,7 @@
       when: ansible_os_family == "Debian"
       failed_when: false
 
-    - name: Remove Nginx configuration (RHEL/CentOS/Rocky/Alma)
+    - name: Remove Nginx configuration (RHEL)
       ansible.builtin.file:
         path: /etc/nginx/conf.d/{{ project_name }}.conf
         state: absent
@@ -107,16 +93,3 @@
           - "  - Installation directory: {{ install_dir }}"
           - "  - Nginx configuration"
           - "  - SSL certificate (if domain was provided)"
-          - ""
-          - "NOT removed (manual cleanup required if desired):"
-          - "  - Docker"
-          - "  - Nginx"
-          - "  - Certbot"
-          - ""
-          - "To completely remove all components:"
-          - "  Docker: apt remove docker-ce docker-ce-cli containerd.io (Debian/Ubuntu)"
-          - "          dnf remove docker-ce docker-ce-cli containerd.io (RHEL 8+/Rocky/Alma)"
-          - "  Nginx:  apt remove nginx (Debian/Ubuntu)"
-          - "          dnf remove nginx (RHEL 8+/Rocky/Alma)"
-          - "  Certbot: apt remove certbot python3-certbot-nginx (Debian/Ubuntu)"
-          - "           dnf remove certbot python3-certbot-nginx (RHEL 8+/Rocky/Alma)"
