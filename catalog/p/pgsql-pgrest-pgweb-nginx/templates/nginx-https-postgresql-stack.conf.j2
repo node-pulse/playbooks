@@ -31,7 +31,7 @@ server {
     # Authelia authentication endpoint (internal only)
     location /authelia-verify {
         internal;
-        proxy_pass http://127.0.0.1:{{ authelia_port }}/api/verify;
+        proxy_pass http://127.0.0.1:{{ authelia_port }}/api/authz/forward-auth;
         proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
         proxy_set_header X-Forwarded-Method $request_method;
         proxy_set_header X-Forwarded-Proto $scheme;
