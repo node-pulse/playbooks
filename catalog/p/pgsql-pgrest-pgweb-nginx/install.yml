@@ -424,6 +424,21 @@
       retries: 30
       delay: 5
 
+    # Pre-generate TOTP for admin user (bypasses email verification)
+    - name: Generate TOTP secret for admin user
+      ansible.builtin.shell: |
+        docker exec {{ project_name }}-authelia authelia storage user totp generate \
+          --config /config/configuration.yml \
+          "{{ admin_email }}" 2>&1
+      register: totp_generate_result
+      changed_when: true
+      failed_when: false
+
+    - name: Extract TOTP secret from output
+      ansible.builtin.set_fact:
+        totp_secret: "{{ totp_generate_result.stdout | regex_search('Secret:\\s+([A-Z2-7]+)', '\\1') | first | default('') }}"
+      when: totp_generate_result.stdout is defined
+
     - name: Wait for Auth service to be ready
       ansible.builtin.uri:
         url: "http://localhost:{{ auth_port }}/health"
@@ -510,7 +525,17 @@
           - "  {{ api_admin_name }} / {{ api_admin_password }}"
           - ""
           - "Authelia (2FA for pgweb):"
-          - "  {{ admin_email }} / {{ authelia_admin_password }}"
+          - "  Username: {{ admin_email }}"
+          - "  Password: {{ authelia_admin_password }}"
+          - "  TOTP Secret: {{ totp_secret | default('Not generated') }}"
+          - ""
+          - "TOTP Setup (Google Authenticator):"
+          - "  1. Open Google Authenticator (or Authy, etc.)"
+          - "  2. Tap '+' > 'Enter a setup key'"
+          - "  3. Account name: {{ admin_email }}"
+          - "  4. Your key: {{ totp_secret | default('See above') }}"
+          - "  5. Key type: Time-based (default)"
+          - "  6. Tap 'Add'"
           - ""
           - "SAVE THESE CREDENTIALS!"
           - ""

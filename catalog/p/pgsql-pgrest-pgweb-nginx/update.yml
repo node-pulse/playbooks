@@ -218,11 +218,54 @@
       register: docker_restart
       changed_when: "'Started' in docker_restart.stderr or 'Recreated' in docker_restart.stderr"
 
+    - name: Wait for Authelia to be ready
+      ansible.builtin.uri:
+        url: "http://localhost:{{ authelia_port }}/api/health"
+        status_code: 200
+      register: authelia_health
+      until: authelia_health.status == 200
+      retries: 30
+      delay: 5
+
+    # Check if TOTP already exists for admin user
+    - name: Check if TOTP is configured for admin user
+      ansible.builtin.shell: |
+        docker exec {{ project_name }}-authelia authelia storage user totp export uri \
+          --config /config/configuration.yml \
+          "{{ admin_email }}" 2>&1
+      register: totp_check_result
+      changed_when: false
+      failed_when: false
+
+    - name: Set TOTP exists flag
+      ansible.builtin.set_fact:
+        totp_exists: "{{ 'otpauth://' in totp_check_result.stdout }}"
+
+    # Generate TOTP if not exists
+    - name: Generate TOTP secret for admin user
+      ansible.builtin.shell: |
+        docker exec {{ project_name }}-authelia authelia storage user totp generate \
+          --config /config/configuration.yml \
+          "{{ admin_email }}" 2>&1
+      register: totp_generate_result
+      changed_when: true
+      failed_when: false
+      when: not totp_exists
+
+    - name: Extract TOTP secret from output
+      ansible.builtin.set_fact:
+        totp_secret: "{{ totp_generate_result.stdout | regex_search('Secret:\\s+([A-Z2-7]+)', '\\1') | first | default('') }}"
+      when:
+        - not totp_exists
+        - totp_generate_result.stdout is defined
+
     - name: Display update summary
       ansible.builtin.debug:
         msg:
+          - "============================================"
           - "PostgreSQL Stack update complete!"
           - "============================================"
+          - ""
           - "Base URL: https://{{ domain }}"
           - ""
           - "Services:"
@@ -230,3 +273,36 @@
           - "  PostgREST: https://{{ domain }}/postgrest/"
           - "  Auth:      https://{{ domain }}/auth/"
           - "  Authelia:  https://{{ domain }}/authelia/"
+          - ""
+          - "Authelia Login: {{ admin_email }}"
+          - "============================================"
+
+    - name: Display TOTP setup instructions (new TOTP generated)
+      ansible.builtin.debug:
+        msg:
+          - "============================================"
+          - "NEW: TOTP 2FA has been configured!"
+          - "============================================"
+          - ""
+          - "TOTP Secret: {{ totp_secret }}"
+          - ""
+          - "Setup in Google Authenticator:"
+          - "  1. Open Google Authenticator (or Authy, etc.)"
+          - "  2. Tap '+' > 'Enter a setup key'"
+          - "  3. Account name: {{ admin_email }}"
+          - "  4. Your key: {{ totp_secret }}"
+          - "  5. Key type: Time-based (default)"
+          - "  6. Tap 'Add'"
+          - ""
+          - "SAVE THIS SECRET!"
+          - "============================================"
+      when:
+        - not totp_exists
+        - totp_secret is defined
+        - totp_secret | length > 0
+
+    - name: Display TOTP already configured message
+      ansible.builtin.debug:
+        msg:
+          - "TOTP: Already configured (no changes)"
+      when: totp_exists

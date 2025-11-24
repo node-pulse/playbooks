@@ -25,9 +25,14 @@ identity_validation:
     jwt_secret: {{ authelia_jwt_secret }}
 
 totp:
+  disable: false
   issuer: {{ domain }}
   period: 30
   skew: 1
+
+# Disable WebAuthn (we only want TOTP)
+webauthn:
+  disable: true
 
 authentication_backend:
   file:
