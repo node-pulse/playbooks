@@ -224,8 +224,9 @@
         status_code: 200
       register: authelia_health
       until: authelia_health.status == 200
-      retries: 30
+      retries: 12
       delay: 5
+      failed_when: false
 
     # Check if TOTP already exists for admin user
     - name: Check if TOTP is configured for admin user
