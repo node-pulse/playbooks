@@ -88,26 +88,26 @@
       "name": "authelia_admin_password",
       "label": "Authelia Admin Password",
       "type": "password",
-      "description": "Password for Authelia admin user (username: admin). Min 8 characters.",
+      "description": "Password for Authelia admin user (username: admin). Minimum 8 characters required.",
       "required": true
     },
     {
       "name": "api_user_name",
       "label": "API User Name",
       "type": "string",
-      "description": "Username for read-only API access (default: api_user)",
+      "description": "Username for standard API access with read/write permissions (default: api_user)",
       "required": false,
       "default": "api_user",
-      "pattern": "^[a-z][a-z0-9_]{2,30}$"
+      "pattern": "^[a-z][a-z0-9_]{2,29}$"
     },
     {
       "name": "api_admin_name",
       "label": "API Admin Name",
       "type": "string",
-      "description": "Username for admin API access (default: api_admin)",
+      "description": "Username for admin API access with full permissions (default: api_admin)",
       "required": false,
       "default": "api_admin",
-      "pattern": "^[a-z][a-z0-9_]{2,30}$"
+      "pattern": "^[a-z][a-z0-9_]{2,29}$"
     }
   ],
   "health_checks": [

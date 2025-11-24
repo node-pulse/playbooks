@@ -69,8 +69,9 @@
         - AUTHELIA_JWT_SECRET
         - AUTHELIA_SESSION_SECRET
         - AUTHELIA_STORAGE_ENCRYPTION_KEY
-        - AUTHELIA_ADMIN_PASSWORD
+        - API_USER_NAME
         - API_USER_PASSWORD
+        - API_ADMIN_NAME
         - API_ADMIN_PASSWORD
       changed_when: false
       failed_when: false
@@ -83,9 +84,10 @@
         authelia_jwt_secret: "{{ existing_credentials.results[3].stdout }}"
         authelia_session_secret: "{{ existing_credentials.results[4].stdout }}"
         authelia_storage_encryption_key: "{{ existing_credentials.results[5].stdout }}"
-        authelia_admin_password: "{{ existing_credentials.results[6].stdout }}"
+        api_user_name: "{{ existing_credentials.results[6].stdout | default('api_user', true) }}"
         api_user_password: "{{ existing_credentials.results[7].stdout }}"
-        api_admin_password: "{{ existing_credentials.results[8].stdout }}"
+        api_admin_name: "{{ existing_credentials.results[8].stdout | default('api_admin', true) }}"
+        api_admin_password: "{{ existing_credentials.results[9].stdout }}"
 
     # Load existing Authelia password hash
     - name: Load existing Authelia password hash
