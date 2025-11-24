@@ -19,7 +19,9 @@ JWT_SECRET = os.getenv('POSTGREST_JWT_SECRET', '')
 TOKEN_EXPIRY_HOURS = int(os.getenv('TOKEN_EXPIRY_HOURS', '24'))
 
 # User credentials from environment (loaded at runtime)
+API_USER_NAME = os.getenv('API_USER_NAME', 'api_user')
 API_USER_PASSWORD = os.getenv('API_USER_PASSWORD', '')
+API_ADMIN_NAME = os.getenv('API_ADMIN_NAME', 'api_admin')
 API_ADMIN_PASSWORD = os.getenv('API_ADMIN_PASSWORD', '')
 
 # Hash passwords at startup (bcrypt with salt)
@@ -30,14 +32,14 @@ def init_users():
     """Initialize user database with bcrypt hashed passwords"""
     global USERS
     if API_USER_PASSWORD:
-        USERS['api_user'] = {
+        USERS[API_USER_NAME] = {
             'password_hash': bcrypt.hashpw(API_USER_PASSWORD.encode(), bcrypt.gensalt()),
-            'role': 'api_user'
+            'role': API_USER_NAME  # Role name matches username for PostgREST
         }
     if API_ADMIN_PASSWORD:
-        USERS['admin'] = {
+        USERS[API_ADMIN_NAME] = {
             'password_hash': bcrypt.hashpw(API_ADMIN_PASSWORD.encode(), bcrypt.gensalt()),
-            'role': 'admin'
+            'role': API_ADMIN_NAME  # Role name matches username for PostgREST
         }
 
 # Rate limiting: track failed login attempts

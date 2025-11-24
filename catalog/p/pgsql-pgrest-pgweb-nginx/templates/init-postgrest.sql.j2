@@ -21,8 +21,8 @@ $$;
 -- Create api_user role (for authenticated API users - read/write permissions)
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'api_user') THEN
-    CREATE ROLE api_user NOLOGIN;
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '{{ api_user_name }}') THEN
+    CREATE ROLE {{ api_user_name }} NOLOGIN;
   END IF;
 END
 $$;
@@ -30,8 +30,8 @@ $$;
 -- Create admin role (for authenticated admins - full permissions)
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'admin') THEN
-    CREATE ROLE admin NOLOGIN;
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '{{ api_admin_name }}') THEN
+    CREATE ROLE {{ api_admin_name }} NOLOGIN;
   END IF;
 END
 $$;
@@ -41,32 +41,32 @@ GRANT CONNECT ON DATABASE {{ postgres_db }} TO {{ postgrest_role }};
 
 -- Grant roles to authenticator so PostgREST can switch between them
 GRANT {{ postgrest_anon_role }} TO {{ postgrest_role }};
-GRANT api_user TO {{ postgrest_role }};
-GRANT admin TO {{ postgrest_role }};
+GRANT {{ api_user_name }} TO {{ postgrest_role }};
+GRANT {{ api_admin_name }} TO {{ postgrest_role }};
 
 -- Grant usage on schema to all roles
 GRANT USAGE ON SCHEMA public TO {{ postgrest_role }};
 GRANT USAGE ON SCHEMA public TO {{ postgrest_anon_role }};
-GRANT USAGE ON SCHEMA public TO api_user;
-GRANT USAGE ON SCHEMA public TO admin;
+GRANT USAGE ON SCHEMA public TO {{ api_user_name }};
+GRANT USAGE ON SCHEMA public TO {{ api_admin_name }};
 
 -- Anonymous role: Very limited permissions (read-only on specific tables)
 -- By default, anon has NO permissions - you grant access table by table
 -- This is the most secure approach
 
 -- API User role: Read and write permissions
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO api_user;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO api_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {{ api_user_name }};
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {{ api_user_name }};
 
 -- Admin role: Full permissions
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO admin;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO admin;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO {{ api_admin_name }};
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO {{ api_admin_name }};
 
 -- Set default privileges for future tables
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO api_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO api_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO admin;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO admin;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {{ api_user_name }};
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO {{ api_user_name }};
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO {{ api_admin_name }};
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO {{ api_admin_name }};
 
 -- Example: Create a sample table for testing
 CREATE TABLE IF NOT EXISTS sample_data (
@@ -86,4 +86,4 @@ ON CONFLICT DO NOTHING;
 -- Grant read-only access to sample_data for anonymous users (public access)
 GRANT SELECT ON sample_data TO {{ postgrest_anon_role }};
 
--- api_user and admin already have full access via earlier grants
+-- {{ api_user_name }} and {{ api_admin_name }} already have full access via earlier grants

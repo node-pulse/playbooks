@@ -38,7 +38,18 @@
           - domain | length > 0
           - admin_email is defined
           - admin_email | length > 0
-        fail_msg: "Required variables: domain and admin_email"
+          - authelia_admin_password is defined
+          - authelia_admin_password | length >= 8
+        fail_msg: "Required variables: domain, admin_email, authelia_admin_password (min 8 chars)"
+
+    # Set defaults for optional username variables
+    - name: Set default API user name
+      ansible.builtin.set_fact:
+        api_user_name: "{{ api_user_name | default('api_user') }}"
+
+    - name: Set default API admin name
+      ansible.builtin.set_fact:
+        api_admin_name: "{{ api_admin_name | default('api_admin') }}"
 
     # Generate all passwords automatically
     - name: Generate PostgreSQL password
@@ -64,10 +75,6 @@
     - name: Generate Authelia storage encryption key
       ansible.builtin.set_fact:
         authelia_storage_encryption_key: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
-
-    - name: Generate Authelia admin password
-      ansible.builtin.set_fact:
-        authelia_admin_password: "{{ lookup('password', '/dev/null length=24 chars=ascii_letters,digits') }}"
 
     - name: Generate API user password
       ansible.builtin.set_fact:
@@ -499,8 +506,8 @@
           - "  Database: {{ postgres_db }}"
           - ""
           - "API Credentials:"
-          - "  api_user / {{ api_user_password }}"
-          - "  admin / {{ api_admin_password }}"
+          - "  {{ api_user_name }} / {{ api_user_password }}"
+          - "  {{ api_admin_name }} / {{ api_admin_password }}"
           - ""
           - "Authelia (2FA for pgweb):"
           - "  admin / {{ authelia_admin_password }}"
