@@ -436,7 +436,7 @@
 
     - name: Extract TOTP secret from output
       ansible.builtin.set_fact:
-        totp_secret: "{{ totp_generate_result.stdout | regex_search('Secret:\\s+([A-Z2-7]+)', '\\1') | first | default('') }}"
+        totp_secret: "{{ totp_generate_result.stdout | regex_search('secret=([A-Z2-7]+)', '\\1') | first | default('') }}"
       when: totp_generate_result.stdout is defined
 
     - name: Wait for Auth service to be ready

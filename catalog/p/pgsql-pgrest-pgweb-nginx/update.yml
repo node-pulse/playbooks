@@ -232,7 +232,7 @@
       ansible.builtin.shell: |
         docker exec {{ project_name }}-authelia authelia storage user totp export uri \
           --config /config/configuration.yml \
-          "{{ admin_email }}" 2>&1
+          --users "{{ admin_email }}" 2>&1
       register: totp_check_result
       changed_when: false
       failed_when: false
@@ -254,7 +254,7 @@
 
     - name: Extract TOTP secret from output
       ansible.builtin.set_fact:
-        totp_secret: "{{ totp_generate_result.stdout | regex_search('Secret:\\s+([A-Z2-7]+)', '\\1') | first | default('') }}"
+        totp_secret: "{{ totp_generate_result.stdout | regex_search('secret=([A-Z2-7]+)', '\\1') | first | default('') }}"
       when:
         - not totp_exists
         - totp_generate_result.stdout is defined
