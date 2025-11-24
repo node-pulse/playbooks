@@ -234,19 +234,7 @@
         mode: '0644'
       register: auth_dockerfile_updated
 
-    # Update Nginx configuration - force regeneration every time
-    - name: Remove existing Nginx config to force regeneration (Debian/Ubuntu)
-      ansible.builtin.file:
-        path: "/etc/nginx/sites-available/{{ project_name }}"
-        state: absent
-      when: ansible_os_family == "Debian"
-
-    - name: Remove existing Nginx config to force regeneration (RHEL/Rocky/Alma)
-      ansible.builtin.file:
-        path: "/etc/nginx/conf.d/{{ project_name }}.conf"
-        state: absent
-      when: ansible_os_family == "RedHat"
-
+    # Update Nginx configuration
     - name: Update Nginx HTTPS configuration (Debian/Ubuntu)
       ansible.builtin.template:
         src: templates/nginx-https-postgresql-stack.conf.j2
@@ -291,10 +279,11 @@
       ansible.builtin.command: nginx -t
       changed_when: false
 
-    - name: Reload Nginx
+    - name: Reload Nginx if configuration changed
       ansible.builtin.systemd:
         name: nginx
         state: reloaded
+      when: nginx_updated_debian.changed or nginx_updated_rhel.changed or nginx_updated_debian_http.changed or nginx_updated_rhel_http.changed
 
     # Restart services if configs changed
     - name: Restart Docker containers if configuration changed

@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/refs/heads/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
   "id": "pb_PgRstPgWeb",
   "name": "PostgreSQL Stack (PostgreSQL + PostgREST + pgweb + Nginx)",
-  "version": "1.4.21",
+  "version": "1.4.22",
   "description": "Complete PostgreSQL service stack with PostgreSQL 18, PostgREST RESTful API with JWT authentication, pgweb web UI protected by Authelia 2FA, and Nginx reverse proxy with path-based routing and automatic SSL",
   "author": {
     "name": "Yumin",
