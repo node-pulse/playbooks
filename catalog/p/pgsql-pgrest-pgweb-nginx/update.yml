@@ -89,7 +89,7 @@
         api_admin_name: "{{ existing_credentials.results[8].stdout | default('api_admin', true) }}"
         api_admin_password: "{{ existing_credentials.results[9].stdout }}"
 
-    # Load existing Authelia password hash
+    # Load existing Authelia password hash and admin email
     - name: Load existing Authelia password hash
       ansible.builtin.shell: |
         set -o pipefail
@@ -98,9 +98,18 @@
       changed_when: false
       failed_when: false
 
-    - name: Set Authelia admin password hash
+    - name: Load existing admin email from authelia-users.yml
+      ansible.builtin.shell: |
+        set -o pipefail
+        grep 'email:' {{ install_dir }}/authelia-users.yml | head -1 | sed 's/.*email:[[:space:]]*["'\'']\?\([^"'\'']*\)["'\'']\?.*/\1/'
+      register: existing_admin_email
+      changed_when: false
+      failed_when: false
+
+    - name: Set Authelia admin password hash and email
       ansible.builtin.set_fact:
         authelia_admin_password_hash: "{{ existing_authelia_hash.stdout }}"
+        admin_email: "{{ existing_admin_email.stdout | default('admin@localhost', true) }}"
 
     # Update configuration files
     - name: Update .env file
