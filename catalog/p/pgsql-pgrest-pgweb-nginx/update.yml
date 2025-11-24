@@ -23,7 +23,6 @@
         postgrest_role: "{{ postgrest_role | default('authenticator') }}"
         postgrest_anon_role: "{{ postgrest_anon_role | default('anon') }}"
         enable_ssl: "{{ enable_ssl | default(true) }}"
-        update_images: "{{ update_images | default(false) }}"
 
     - name: Set data directory based on install directory
       ansible.builtin.set_fact:
@@ -62,7 +61,6 @@
           - "Updating PostgreSQL Stack at {{ install_dir }}"
           - "Project name: {{ project_name }}"
           - "Domain: {{ domain }}"
-          - "Update images: {{ update_images }}"
 
     # Load existing passwords from .env file to prevent regeneration
     - name: Check if .env file exists
@@ -286,15 +284,6 @@
         state: reloaded
       when: nginx_updated_debian.changed or nginx_updated_rhel.changed or nginx_updated_debian_http.changed or nginx_updated_rhel_http.changed
 
-    # Pull new Docker images if requested
-    - name: Pull latest Docker images
-      ansible.builtin.command: docker compose pull
-      args:
-        chdir: "{{ install_dir }}"
-      when: update_images
-      register: docker_pull
-      changed_when: "'Downloaded' in docker_pull.stderr or 'Pulled' in docker_pull.stderr"
-
     # Restart services if configs changed
     - name: Restart Docker containers if configuration changed
       ansible.builtin.command: docker compose up -d
@@ -307,8 +296,7 @@
         authelia_config_updated.changed or
         authelia_users_updated.changed or
         auth_service_updated.changed or
-        auth_dockerfile_updated.changed or
-        (update_images and docker_pull.changed)
+        auth_dockerfile_updated.changed
       register: docker_restart
       changed_when: "'Started' in docker_restart.stderr or 'Recreated' in docker_restart.stderr"
 
@@ -325,7 +313,6 @@
           - "  Auth Service: {{ 'Yes' if auth_service_updated.changed else 'No changes' }}"
           - "  Nginx: {{ 'Yes' if (nginx_updated_debian.changed or nginx_updated_rhel.changed or nginx_updated_debian_http.changed or nginx_updated_rhel_http.changed) else 'No changes' }}"
           - ""
-          - "Docker images: {{ 'Updated' if (update_images and docker_pull.changed) else 'Not updated (use -e update_images=true to update)' }}"
           - "Containers: {{ 'Restarted' if docker_restart.changed else 'No restart needed' }}"
           - ""
           - "Base URL: {{ 'https' if enable_ssl else 'http' }}://{{ domain }}"
