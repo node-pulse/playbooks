@@ -3,8 +3,8 @@
 # Reference: https://www.authelia.com/configuration/prologue/introduction/
 
 server:
-  address: 'tcp://0.0.0.0:9091/'
-  asset_path: ''
+  # Include the subpath in the address so Authelia generates correct base href
+  address: 'tcp://0.0.0.0:9091{{ authelia_path }}'
   endpoints:
     authz:
       forward-auth:
