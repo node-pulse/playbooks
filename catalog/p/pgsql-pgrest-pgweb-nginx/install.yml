@@ -510,7 +510,7 @@
           - "  {{ api_admin_name }} / {{ api_admin_password }}"
           - ""
           - "Authelia (2FA for pgweb):"
-          - "  admin / {{ authelia_admin_password }}"
+          - "  {{ admin_email }} / {{ authelia_admin_password }}"
           - ""
           - "SAVE THESE CREDENTIALS!"
           - ""

@@ -3,7 +3,7 @@
 # Reference: https://www.authelia.com/configuration/first-factor/file/
 
 users:
-  admin:
+  {{ admin_email | default('admin@localhost') }}:
     displayname: Administrator
     password: "{{ authelia_admin_password_hash }}"
     email: "{{ admin_email | default('admin@localhost') }}"
