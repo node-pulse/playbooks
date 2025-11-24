@@ -155,7 +155,7 @@
     - name: Load existing Authelia password hash
       ansible.builtin.shell: |
         set -o pipefail
-        grep 'password:' {{ install_dir }}/authelia-users.yml | head -1 | awk '{print $2}'
+        grep 'password:' {{ install_dir }}/authelia-users.yml | head -1 | sed 's/.*password: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | tr -d '"'
       register: existing_authelia_hash
       when: authelia_users_file.stat.exists
       changed_when: false
