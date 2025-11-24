@@ -155,7 +155,8 @@
     - name: Load existing Authelia password hash
       ansible.builtin.shell: |
         set -o pipefail
-        grep 'password:' {{ install_dir }}/authelia-users.yml | head -1 | sed 's/.*password: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | tr -d '"'
+        # Extract just the argon2 hash pattern, ignoring any surrounding garbage
+        grep -oE '\$argon2id\$v=[0-9]+\$m=[0-9]+,t=[0-9]+,p=[0-9]+\$[A-Za-z0-9+/]+\$[A-Za-z0-9+/]+' {{ install_dir }}/authelia-users.yml | head -1
       register: existing_authelia_hash
       when: authelia_users_file.stat.exists
       changed_when: false
@@ -201,17 +202,8 @@
       register: authelia_config_updated
 
     - name: Update Authelia users database
-      ansible.builtin.copy:
-        content: |
-          ---
-          # Authelia Users Database
-          users:
-            admin:
-              displayname: Administrator
-              password: '{{ authelia_admin_password_hash }}'
-              email: '{{ admin_email | default("admin@localhost") }}'
-              groups:
-                - admins
+      ansible.builtin.template:
+        src: templates/authelia-users.yml.j2
         dest: "{{ install_dir }}/authelia-users.yml"
         mode: '0600'
       register: authelia_users_updated

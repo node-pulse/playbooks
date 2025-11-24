@@ -251,17 +251,8 @@
         mode: '0600'
 
     - name: Create Authelia users database
-      ansible.builtin.copy:
-        content: |
-          ---
-          # Authelia Users Database
-          users:
-            admin:
-              displayname: Administrator
-              password: '{{ authelia_admin_password_hash }}'
-              email: '{{ admin_email | default("admin@localhost") }}'
-              groups:
-                - admins
+      ansible.builtin.template:
+        src: templates/authelia-users.yml.j2
         dest: "{{ install_dir }}/authelia-users.yml"
         mode: '0600'
 
