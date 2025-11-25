@@ -29,9 +29,10 @@ server {
     error_log /var/log/nginx/{{ project_name }}-error.log;
 
     # Authelia authentication endpoint (internal only)
+    # Using auth-request endpoint for NGINX (not forward-auth which is for Traefik/Caddy)
     location /authelia-verify {
         internal;
-        proxy_pass http://127.0.0.1:{{ authelia_port }}/api/authz/forward-auth;
+        proxy_pass http://127.0.0.1:{{ authelia_port }}/api/authz/auth-request;
         proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
         proxy_set_header X-Forwarded-Method $request_method;
         proxy_set_header X-Forwarded-Proto $scheme;

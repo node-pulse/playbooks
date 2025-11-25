@@ -6,8 +6,8 @@ server:
   address: 'tcp://0.0.0.0:9091'
   endpoints:
     authz:
-      forward-auth:
-        implementation: ForwardAuth
+      auth-request:
+        implementation: AuthRequest
 
 log:
   level: info
