@@ -138,8 +138,22 @@
       failed_when: false
       changed_when: false
 
+    - name: Download Docker install script
+      ansible.builtin.get_url:
+        url: https://get.docker.com
+        dest: /tmp/get-docker.sh
+        mode: '0755'
+      when: docker_installed.rc != 0
+
     - name: Install Docker using official script
-      ansible.builtin.shell: curl -fsSL https://get.docker.com | sh
+      ansible.builtin.command: /tmp/get-docker.sh
+      when: docker_installed.rc != 0
+      changed_when: true
+
+    - name: Remove Docker install script
+      ansible.builtin.file:
+        path: /tmp/get-docker.sh
+        state: absent
       when: docker_installed.rc != 0
 
     - name: Start and enable Docker service
@@ -446,8 +460,14 @@
         mode: '0644'
       when: ansible_os_family == "RedHat"
 
-    - name: Test and reload Nginx
-      ansible.builtin.shell: nginx -t && systemctl reload nginx
+    - name: Test Nginx configuration
+      ansible.builtin.command: nginx -t
+      changed_when: false
+
+    - name: Reload Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded
 
     - name: Setup automatic certificate renewal
       ansible.builtin.cron:
