@@ -109,7 +109,7 @@
         "maxLength": 30
       },
       "minItems": 1,
-      "maxItems": 10,
+      "maxItems": 20,
       "uniqueItems": true
     },
     "structure": {
