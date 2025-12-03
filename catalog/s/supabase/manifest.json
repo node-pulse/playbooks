@@ -1,0 +1,235 @@
+{
+  "$schema": "https://raw.githubusercontent.com/node-pulse/playbooks/refs/heads/main/schemas/node-pulse-admiral-playbook-manifest-v1.schema.json",
+  "id": "pb_imsez3h8On",
+  "name": "Supabase (Self-Hosted)",
+  "version": "1.0.0",
+  "description": "Self-hosted Supabase deployment with PostgreSQL, Kong API Gateway, GoTrue Auth, PostgREST, Realtime, Storage, and Studio Dashboard with Nginx reverse proxy, automatic SSL via Certbot, and Authelia 2FA protection",
+  "author": {
+    "name": "Yumin",
+    "email": "yuminops@gmail.com",
+    "url": "https://github.com/guiyumin",
+    "status": "community"
+  },
+  "homepage": "https://github.com/node-pulse/playbooks/tree/main/catalog/s/supabase",
+  "repository": "https://github.com/node-pulse/playbooks",
+  "category": "database",
+  "tags": [
+    "supabase",
+    "postgresql",
+    "baas",
+    "backend-as-a-service",
+    "firebase-alternative",
+    "authentication",
+    "realtime",
+    "storage",
+    "api",
+    "nginx",
+    "2fa",
+    "authelia"
+  ],
+  "structure": {
+    "playbooks": {
+      "install": {
+        "file": "install.yml",
+        "variables": [
+          "supabase_domain",
+          "admin_email",
+          "dashboard_password",
+          "dashboard_username",
+          "smtp_host",
+          "smtp_port",
+          "smtp_user",
+          "smtp_pass",
+          "smtp_sender_email",
+          "supabase_install_dir"
+        ]
+      },
+      "uninstall": {
+        "file": "uninstall.yml",
+        "variables": ["supabase_install_dir", "supabase_domain"]
+      }
+    },
+    "templates": [
+      "templates/compose.yml.j2",
+      "templates/env.j2",
+      "templates/kong.yml.j2",
+      "templates/vector.yml.j2",
+      "templates/nginx-https.conf.j2",
+      "templates/authelia-config.yml.j2",
+      "templates/authelia-users.yml.j2"
+    ],
+    "files": []
+  },
+  "ansible_version": ">=2.10",
+  "os_support": [
+    {
+      "distro": "ubuntu",
+      "version": "20.04",
+      "arch": "both"
+    },
+    {
+      "distro": "ubuntu",
+      "version": "22.04",
+      "arch": "both"
+    },
+    {
+      "distro": "ubuntu",
+      "version": "24.04",
+      "arch": "both"
+    },
+    {
+      "distro": "debian",
+      "version": "11",
+      "arch": "both"
+    },
+    {
+      "distro": "debian",
+      "version": "12",
+      "arch": "both"
+    },
+    {
+      "distro": "rhel",
+      "version": "8",
+      "arch": "both"
+    },
+    {
+      "distro": "rhel",
+      "version": "9",
+      "arch": "both"
+    },
+    {
+      "distro": "rocky",
+      "version": "8",
+      "arch": "both"
+    },
+    {
+      "distro": "rocky",
+      "version": "9",
+      "arch": "both"
+    },
+    {
+      "distro": "alma",
+      "version": "8",
+      "arch": "both"
+    },
+    {
+      "distro": "alma",
+      "version": "9",
+      "arch": "both"
+    }
+  ],
+  "variables": [
+    {
+      "name": "supabase_domain",
+      "label": "Domain Name",
+      "type": "string",
+      "description": "Fully qualified domain name for Supabase (e.g., supabase.example.com)",
+      "required": true,
+      "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$"
+    },
+    {
+      "name": "admin_email",
+      "label": "Admin Email",
+      "type": "string",
+      "description": "Email address for SSL certificate notifications",
+      "required": true,
+      "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    },
+    {
+      "name": "dashboard_password",
+      "label": "Dashboard Password",
+      "type": "password",
+      "description": "Password for Supabase Studio dashboard (min 8 chars)",
+      "required": true
+    },
+    {
+      "name": "dashboard_username",
+      "label": "Dashboard Username",
+      "type": "string",
+      "default": "supabase",
+      "description": "Username for Supabase Studio dashboard",
+      "required": false
+    },
+    {
+      "name": "smtp_host",
+      "label": "SMTP Host",
+      "type": "string",
+      "description": "SMTP server hostname for sending emails (optional)",
+      "required": false
+    },
+    {
+      "name": "smtp_port",
+      "label": "SMTP Port",
+      "type": "integer",
+      "default": 587,
+      "description": "SMTP server port",
+      "required": false
+    },
+    {
+      "name": "smtp_user",
+      "label": "SMTP Username",
+      "type": "string",
+      "description": "SMTP authentication username",
+      "required": false
+    },
+    {
+      "name": "smtp_pass",
+      "label": "SMTP Password",
+      "type": "password",
+      "description": "SMTP authentication password",
+      "required": false
+    },
+    {
+      "name": "smtp_sender_email",
+      "label": "SMTP Sender Email",
+      "type": "string",
+      "description": "Email address to send emails from",
+      "required": false
+    },
+    {
+      "name": "supabase_install_dir",
+      "label": "Installation Directory",
+      "type": "string",
+      "default": "/opt/supabase",
+      "description": "Directory where Supabase will be installed",
+      "required": false,
+      "pattern": "^/[a-zA-Z0-9/_-]+$"
+    }
+  ],
+  "health_checks": [
+    {
+      "type": "http",
+      "url": "http://localhost:8000/health",
+      "expect_status": 200,
+      "timeout": 10
+    },
+    {
+      "type": "command",
+      "command": "docker ps | grep -q supabase-kong",
+      "timeout": 5
+    },
+    {
+      "type": "command",
+      "command": "docker ps | grep -q supabase-db",
+      "timeout": 5
+    },
+    {
+      "type": "command",
+      "command": "systemctl is-active nginx",
+      "timeout": 5
+    }
+  ],
+  "dangerous_operations": [
+    "Installs Docker and Docker Compose using official script if not present",
+    "Creates PostgreSQL database with persistent storage",
+    "Deploys 10+ Docker containers for Supabase services",
+    "Installs or configures Nginx as reverse proxy",
+    "Installs Certbot and obtains SSL certificate from Let's Encrypt",
+    "Opens ports 80 and 443 for web access",
+    "Stores all data in /opt/supabase/volumes directory",
+    "May modify Nginx configuration in /etc/nginx/"
+  ],
+  "license": "MIT",
+  "created_at": "2025-12-02T00:00:00Z",
+  "updated_at": "2025-12-02T00:00:00Z"
+}

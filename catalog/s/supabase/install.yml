@@ -1,0 +1,562 @@
+---
+- name: Install Supabase Self-Hosted with Nginx
+  hosts: all
+  become: true
+  vars:
+    supabase_install_dir: "{{ supabase_install_dir | default('/opt/supabase') }}"
+    kong_http_port: "{{ kong_http_port | default(8000) }}"
+    kong_https_port: "{{ kong_https_port | default(8443) }}"
+    dashboard_username: "{{ dashboard_username | default('supabase') }}"
+
+  tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - supabase_domain is defined
+          - supabase_domain | length > 0
+          - admin_email is defined
+          - admin_email | length > 0
+          - dashboard_password is defined
+          - dashboard_password | length >= 8
+        fail_msg: "Required variables: supabase_domain, admin_email, dashboard_password (min 8 chars)"
+
+    # Generate all required secrets automatically
+    - name: Generate PostgreSQL password
+      ansible.builtin.set_fact:
+        postgres_password: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
+
+    - name: Generate JWT secret (min 32 chars required)
+      ansible.builtin.set_fact:
+        jwt_secret: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
+
+    - name: Generate logflare API key
+      ansible.builtin.set_fact:
+        logflare_api_key: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
+
+    - name: Generate secret key base
+      ansible.builtin.set_fact:
+        secret_key_base: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
+
+    - name: Generate vault encryption key
+      ansible.builtin.set_fact:
+        vault_enc_key: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
+
+    # Authelia secrets
+    - name: Generate Authelia JWT secret
+      ansible.builtin.set_fact:
+        authelia_jwt_secret: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
+
+    - name: Generate Authelia session secret
+      ansible.builtin.set_fact:
+        authelia_session_secret: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
+
+    - name: Generate Authelia storage encryption key
+      ansible.builtin.set_fact:
+        authelia_storage_encryption_key: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') }}"
+
+    # Generate JWT keys using Python (requires pyjwt)
+    - name: Check if Python3 and required packages are available
+      ansible.builtin.command: python3 -c "import jwt"
+      register: python_jwt_check
+      failed_when: false
+      changed_when: false
+
+    - name: Install python3-jwt package (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: python3-jwt
+        state: present
+        update_cache: true
+      when:
+        - python_jwt_check.rc != 0
+        - ansible_os_family == "Debian"
+
+    - name: Install python3-jwt package (RHEL)
+      ansible.builtin.dnf:
+        name: python3-jwt
+        state: present
+      when:
+        - python_jwt_check.rc != 0
+        - ansible_os_family == "RedHat"
+
+    - name: Generate anon key JWT if not provided
+      ansible.builtin.shell: |
+        python3 << 'EOF'
+        import jwt
+        import json
+        payload = {
+            "role": "anon",
+            "iss": "supabase",
+            "iat": 1609459200,
+            "exp": 1893456000
+        }
+        token = jwt.encode(payload, "{{ jwt_secret }}", algorithm="HS256")
+        print(token)
+        EOF
+      register: anon_key_result
+      when: anon_key is not defined or anon_key | length == 0
+      changed_when: false
+
+    - name: Set anon key fact
+      ansible.builtin.set_fact:
+        anon_key: "{{ anon_key_result.stdout }}"
+      when: anon_key is not defined or anon_key | length == 0
+
+    - name: Generate service role key JWT if not provided
+      ansible.builtin.shell: |
+        python3 << 'EOF'
+        import jwt
+        import json
+        payload = {
+            "role": "service_role",
+            "iss": "supabase",
+            "iat": 1609459200,
+            "exp": 1893456000
+        }
+        token = jwt.encode(payload, "{{ jwt_secret }}", algorithm="HS256")
+        print(token)
+        EOF
+      register: service_role_key_result
+      when: service_role_key is not defined or service_role_key | length == 0
+      changed_when: false
+
+    - name: Set service role key fact
+      ansible.builtin.set_fact:
+        service_role_key: "{{ service_role_key_result.stdout }}"
+      when: service_role_key is not defined or service_role_key | length == 0
+
+    # Set URL variables (always HTTPS)
+    - name: Set URL variables
+      ansible.builtin.set_fact:
+        site_url: "https://{{ supabase_domain }}"
+        api_external_url: "https://{{ supabase_domain }}"
+        supabase_public_url: "https://{{ supabase_domain }}"
+
+    # Nginx Detection Logic
+    - name: Check if system Nginx is installed
+      ansible.builtin.command: which nginx
+      register: nginx_binary
+      failed_when: false
+      changed_when: false
+
+    - name: Check if ports 80 and 443 are in use
+      ansible.builtin.shell: |
+        set -o pipefail
+        port80=$(ss -tuln | grep ':80 ' || echo "free")
+        port443=$(ss -tuln | grep ':443 ' || echo "free")
+        if [[ "$port80" != "free" ]] || [[ "$port443" != "free" ]]; then
+          echo "in_use"
+        else
+          echo "free"
+        fi
+      register: ports_check
+      changed_when: false
+
+    - name: Fail if ports are occupied and Nginx is not installed
+      ansible.builtin.fail:
+        msg: |
+          ERROR: Ports 80 and/or 443 are already in use, but Nginx is not installed.
+
+          This playbook uses system Nginx for multi-app support.
+          Options:
+          1. Free up ports 80/443 and re-run (playbook will install system Nginx)
+          2. Install Nginx manually first
+      when:
+        - nginx_binary.rc != 0
+        - ports_check.stdout == 'in_use'
+
+    - name: Display Nginx deployment decision
+      ansible.builtin.debug:
+        msg:
+          - "Deploying with system Nginx + Certbot SSL (supports multiple applications on one server)"
+          - "{{ 'Will use existing Nginx installation' if nginx_binary.rc == 0 else 'Will install Nginx from distribution repository' }}"
+          - "SSL: Automatic via Certbot (Let's Encrypt)"
+
+    - name: Install required packages
+      ansible.builtin.package:
+        name:
+          - curl
+          - ca-certificates
+          - gnupg
+        state: present
+
+    # Docker Installation using official script
+    - name: Check if Docker is installed
+      ansible.builtin.command: docker --version
+      register: docker_installed
+      failed_when: false
+      changed_when: false
+
+    - name: Install Docker using official script
+      block:
+        - name: Download Docker installation script
+          ansible.builtin.get_url:
+            url: https://get.docker.com
+            dest: /tmp/get-docker.sh
+            mode: '0755'
+
+        - name: Run Docker installation script
+          ansible.builtin.command: /tmp/get-docker.sh
+          register: docker_install_result
+          changed_when: "'is already the newest version' not in docker_install_result.stdout"
+
+        - name: Remove Docker installation script
+          ansible.builtin.file:
+            path: /tmp/get-docker.sh
+            state: absent
+      when: docker_installed.rc != 0
+
+    - name: Start and enable Docker service
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    # Create Supabase directories
+    - name: Create Supabase directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ supabase_install_dir }}"
+        - "{{ supabase_install_dir }}/volumes"
+        - "{{ supabase_install_dir }}/volumes/api"
+        - "{{ supabase_install_dir }}/volumes/db"
+        - "{{ supabase_install_dir }}/volumes/db/data"
+        - "{{ supabase_install_dir }}/volumes/db/init"
+        - "{{ supabase_install_dir }}/volumes/storage"
+        - "{{ supabase_install_dir }}/volumes/functions"
+        - "{{ supabase_install_dir }}/volumes/logs"
+        - "{{ supabase_install_dir }}/volumes/authelia"
+
+    # Hash the dashboard password for Authelia using Docker
+    - name: Hash dashboard password for Authelia
+      ansible.builtin.shell: |
+        docker run --rm authelia/authelia:4.38.16 authelia crypto hash generate argon2 --password '{{ dashboard_password }}' 2>/dev/null | grep 'Digest:' | awk '{print $2}'
+      register: authelia_password_hash_result
+      changed_when: false
+
+    - name: Set Authelia password hash fact
+      ansible.builtin.set_fact:
+        authelia_admin_password_hash: "{{ authelia_password_hash_result.stdout }}"
+
+    # Create configuration files
+    - name: Create .env file
+      ansible.builtin.template:
+        src: templates/env.j2
+        dest: "{{ supabase_install_dir }}/.env"
+        mode: '0600'
+
+    - name: Create compose.yml
+      ansible.builtin.template:
+        src: templates/compose.yml.j2
+        dest: "{{ supabase_install_dir }}/compose.yml"
+        mode: '0644'
+
+    - name: Create Kong configuration
+      ansible.builtin.template:
+        src: templates/kong.yml.j2
+        dest: "{{ supabase_install_dir }}/volumes/api/kong.yml"
+        mode: '0644'
+
+    - name: Create Vector logging configuration
+      ansible.builtin.template:
+        src: templates/vector.yml.j2
+        dest: "{{ supabase_install_dir }}/volumes/logs/vector.yml"
+        mode: '0644'
+
+    - name: Create Authelia configuration
+      ansible.builtin.template:
+        src: templates/authelia-config.yml.j2
+        dest: "{{ supabase_install_dir }}/authelia-config.yml"
+        mode: '0600'
+
+    - name: Create Authelia users database
+      ansible.builtin.template:
+        src: templates/authelia-users.yml.j2
+        dest: "{{ supabase_install_dir }}/authelia-users.yml"
+        mode: '0600'
+
+    # Create default Edge Function (main service)
+    - name: Create default Edge Function main service
+      ansible.builtin.copy:
+        dest: "{{ supabase_install_dir }}/volumes/functions/main/index.ts"
+        content: |
+          import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+
+          serve(async (req) => {
+            return new Response(
+              JSON.stringify({ message: "Supabase Edge Functions are working!" }),
+              { headers: { "Content-Type": "application/json" } },
+            )
+          })
+        mode: '0644'
+
+    - name: Create functions directory structure
+      ansible.builtin.file:
+        path: "{{ supabase_install_dir }}/volumes/functions/main"
+        state: directory
+        mode: '0755'
+
+    - name: Create default Edge Function main service file
+      ansible.builtin.copy:
+        dest: "{{ supabase_install_dir }}/volumes/functions/main/index.ts"
+        content: |
+          import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+
+          serve(async (req) => {
+            return new Response(
+              JSON.stringify({ message: "Supabase Edge Functions are working!" }),
+              { headers: { "Content-Type": "application/json" } },
+            )
+          })
+        mode: '0644'
+
+    # System Nginx Mode - Install or use existing Nginx installation
+    - name: Check if system Nginx is already installed
+      ansible.builtin.command: which nginx
+      register: system_nginx_check
+      failed_when: false
+      changed_when: false
+
+    - name: Install Nginx (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+        update_cache: true
+      when:
+        - system_nginx_check.rc != 0
+        - ansible_os_family == "Debian"
+
+    - name: Install Nginx (RHEL/CentOS/Rocky/Alma)
+      ansible.builtin.dnf:
+        name: nginx
+        state: present
+      when:
+        - system_nginx_check.rc != 0
+        - ansible_os_family == "RedHat"
+
+    - name: Start and enable Nginx service
+      ansible.builtin.systemd:
+        name: nginx
+        state: started
+        enabled: true
+
+    - name: Create temporary HTTP Nginx configuration (for Certbot validation)
+      ansible.builtin.copy:
+        dest: "{{ '/etc/nginx/sites-available/supabase' if ansible_os_family == 'Debian' else '/etc/nginx/conf.d/supabase.conf' }}"
+        content: |
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name {{ supabase_domain }};
+
+              location /.well-known/acme-challenge/ {
+                  root /var/www/html;
+              }
+
+              location / {
+                  return 200 'Supabase is being configured...';
+                  add_header Content-Type text/plain;
+              }
+          }
+        mode: '0644'
+
+    - name: Enable Nginx site (Debian/Ubuntu)
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/supabase
+        dest: /etc/nginx/sites-enabled/supabase
+        state: link
+      when: ansible_os_family == "Debian"
+
+    - name: Test Nginx configuration
+      ansible.builtin.command: nginx -t
+      changed_when: false
+
+    - name: Reload Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded
+
+    # Check for existing containers
+    - name: Check for existing Supabase containers
+      ansible.builtin.shell: |
+        set -o pipefail
+        docker ps -a --format '{{ '{{' }}.Names{{ '}}' }}' | grep -E '^supabase-' || true
+      register: existing_containers
+      changed_when: false
+
+    - name: Fail if containers already exist
+      ansible.builtin.fail:
+        msg: |
+          ERROR: Existing Supabase containers detected.
+
+          Existing containers found:
+          {{ existing_containers.stdout if existing_containers.stdout else '  (none)' }}
+
+          To avoid data loss, this playbook will NOT automatically remove existing containers.
+
+          If you want to reinstall:
+          1. Run the uninstall playbook first: ansible-playbook uninstall.yml
+          2. Then run this install playbook again
+
+          Or manually remove containers:
+            cd {{ supabase_install_dir }} && docker compose down -v
+      when: existing_containers.stdout != ''
+
+    # Start Supabase services
+    - name: Pull Supabase Docker images
+      ansible.builtin.command: docker compose pull
+      args:
+        chdir: "{{ supabase_install_dir }}"
+      register: docker_pull
+      changed_when: "'Downloaded' in docker_pull.stderr or 'Pulled' in docker_pull.stderr"
+
+    - name: Start Supabase services
+      ansible.builtin.command: docker compose up -d
+      args:
+        chdir: "{{ supabase_install_dir }}"
+      register: docker_up
+      changed_when: "'Started' in docker_up.stderr or 'Created' in docker_up.stderr"
+
+    - name: Wait for Kong API Gateway to be ready
+      ansible.builtin.uri:
+        url: "http://localhost:{{ kong_http_port }}"
+        status_code: [200, 401, 403]
+      register: result
+      until: result.status in [200, 401, 403]
+      retries: 60
+      delay: 10
+
+    # SSL Certificate with Certbot
+    - name: Install Certbot (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install Certbot (RHEL/Rocky/Alma)
+      ansible.builtin.dnf:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Obtain SSL certificate with Certbot
+      ansible.builtin.command: >
+        certbot certonly --nginx
+        -d {{ supabase_domain }}
+        --non-interactive
+        --agree-tos
+        --email {{ admin_email }}
+      register: certbot_result
+      changed_when: "'Successfully received certificate' in certbot_result.stdout"
+
+    - name: Apply HTTPS Nginx configuration
+      ansible.builtin.template:
+        src: templates/nginx-https.conf.j2
+        dest: "{{ '/etc/nginx/sites-available/supabase' if ansible_os_family == 'Debian' else '/etc/nginx/conf.d/supabase.conf' }}"
+        mode: '0644'
+      notify: Reload Nginx
+
+    - name: Test Nginx configuration after HTTPS setup
+      ansible.builtin.command: nginx -t
+      changed_when: false
+
+    - name: Reload Nginx with HTTPS configuration
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded
+
+    - name: Setup automatic certificate renewal
+      ansible.builtin.cron:
+        name: "Renew Let's Encrypt certificates"
+        minute: "0"
+        hour: "0,12"
+        job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
+
+    # Save credentials to file
+    - name: Save credentials to file
+      ansible.builtin.copy:
+        dest: "{{ supabase_install_dir }}/credentials.txt"
+        content: |
+          ==========================================
+          SUPABASE CREDENTIALS - KEEP THIS SECURE!
+          ==========================================
+
+          Dashboard URL: https://{{ supabase_domain }}
+
+          Dashboard Login (protected by 2FA):
+            Email: {{ admin_email }}
+            Password: {{ dashboard_password }}
+            2FA: TOTP (scan QR code on first login)
+
+          API Keys (for your applications):
+            Anon Key (public): {{ anon_key }}
+            Service Role Key (private - keep secret!): {{ service_role_key }}
+
+          Database:
+            Host: {{ supabase_domain }}
+            Port: 5432 (via pooler) or direct connection
+            Password: {{ postgres_password }}
+
+          JWT Secret: {{ jwt_secret }}
+
+          ==========================================
+          IMPORTANT: Store these credentials securely!
+          This file will be deleted after viewing.
+          ==========================================
+        mode: '0600'
+
+    - name: Display installation summary
+      ansible.builtin.debug:
+        msg:
+          - "Supabase Self-Hosted installation complete!"
+          - "============================================"
+          - ""
+          - "Access URL: https://{{ supabase_domain }}"
+          - ""
+          - "Dashboard Login (protected by 2FA):"
+          - "  Email: {{ admin_email }}"
+          - "  Password: {{ dashboard_password }}"
+          - "  2FA: Set up TOTP on first login (scan QR code with authenticator app)"
+          - ""
+          - "API Keys (save these for your applications):"
+          - "  Anon Key: {{ anon_key[:50] }}..."
+          - "  Service Role Key: {{ service_role_key[:50] }}..."
+          - ""
+          - "Full credentials saved to: {{ supabase_install_dir }}/credentials.txt"
+          - "IMPORTANT: Review and securely store credentials, then delete the file!"
+          - ""
+          - "Installation directory: {{ supabase_install_dir }}"
+          - "Reverse Proxy: Nginx"
+          - "SSL Certificate: Let's Encrypt (auto-renewal enabled)"
+          - "2FA: Authelia (TOTP)"
+          - ""
+          - "Services deployed:"
+          - "  - Studio (Dashboard)"
+          - "  - Kong (API Gateway)"
+          - "  - GoTrue (Authentication)"
+          - "  - PostgREST (REST API)"
+          - "  - Realtime (WebSockets)"
+          - "  - Storage (File Storage)"
+          - "  - Edge Functions (Serverless)"
+          - "  - PostgreSQL (Database)"
+          - "  - Analytics (Logflare)"
+          - "  - Authelia (2FA)"
+          - ""
+          - "To manage the service:"
+          - "  Start:   cd {{ supabase_install_dir }} && docker compose start"
+          - "  Stop:    cd {{ supabase_install_dir }} && docker compose stop"
+          - "  Restart: cd {{ supabase_install_dir }} && docker compose restart"
+          - "  Logs:    cd {{ supabase_install_dir }} && docker compose logs -f"
+          - "  Update:  cd {{ supabase_install_dir }} && docker compose pull && docker compose up -d"
+
+  handlers:
+    - name: Reload Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded

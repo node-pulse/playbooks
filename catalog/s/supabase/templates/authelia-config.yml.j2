@@ -1,0 +1,74 @@
+---
+# Authelia Configuration for Supabase Dashboard Protection
+# Reference: https://www.authelia.com/configuration/prologue/introduction/
+
+server:
+  address: 'tcp://0.0.0.0:9091'
+  endpoints:
+    authz:
+      auth-request:
+        implementation: AuthRequest
+
+log:
+  level: info
+
+theme: auto
+
+# JWT secret for password reset tokens
+identity_validation:
+  reset_password:
+    jwt_secret: {{ authelia_jwt_secret }}
+
+totp:
+  disable: false
+  issuer: {{ supabase_domain }}
+  period: 30
+  skew: 1
+
+# Disable WebAuthn (we only want TOTP)
+webauthn:
+  disable: true
+
+authentication_backend:
+  file:
+    path: /config/users_database.yml
+    password:
+      algorithm: argon2id
+      iterations: 3
+      salt_length: 16
+      parallelism: 4
+      memory: 65536
+      key_length: 32
+
+access_control:
+  default_policy: deny
+  rules:
+    # Protect Supabase Studio dashboard - require 2FA
+    - domain: {{ supabase_domain }}
+      policy: two_factor
+      resources:
+        - '^/.*$'
+
+session:
+  name: authelia_session
+  secret: {{ authelia_session_secret }}
+  expiration: 1h
+  inactivity: 5m
+  cookies:
+    - domain: {{ supabase_domain }}
+      authelia_url: https://{{ supabase_domain }}/authelia/
+      default_redirection_url: https://{{ supabase_domain }}/
+
+regulation:
+  max_retries: 5
+  find_time: 2m
+  ban_time: 5m
+
+storage:
+  encryption_key: {{ authelia_storage_encryption_key }}
+  local:
+    path: /data/db.sqlite3
+
+notifier:
+  filesystem:
+    filename: /data/notification.txt
